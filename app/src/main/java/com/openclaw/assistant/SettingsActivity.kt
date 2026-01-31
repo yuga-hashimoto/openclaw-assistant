@@ -55,13 +55,8 @@ fun SettingsScreen(
 ) {
     var webhookUrl by remember { mutableStateOf(settings.webhookUrl) }
     var authToken by remember { mutableStateOf(settings.authToken) }
-    var sessionId by remember { mutableStateOf(settings.sessionId) }
-    var userId by remember { mutableStateOf(settings.userId) }
-    var picovoiceKey by remember { mutableStateOf(settings.picovoiceAccessKey) }
-    var startOnBoot by remember { mutableStateOf(settings.startOnBoot) }
     
     var showAuthToken by remember { mutableStateOf(false) }
-    var showPicovoiceKey by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,10 +72,6 @@ fun SettingsScreen(
                         onClick = {
                             settings.webhookUrl = webhookUrl
                             settings.authToken = authToken
-                            settings.sessionId = sessionId
-                            settings.userId = userId
-                            settings.picovoiceAccessKey = picovoiceKey
-                            settings.startOnBoot = startOnBoot
                             onSave()
                         },
                         enabled = webhookUrl.isNotBlank()
@@ -98,21 +89,12 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // OpenClaw Connection
-            Text(
-                text = "OpenClaw Connection",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-
             // Webhook URL (required)
             OutlinedTextField(
                 value = webhookUrl,
                 onValueChange = { webhookUrl = it },
                 label = { Text("Webhook URL *") },
-                placeholder = { Text("https://your-openclaw.com/webhook") },
+                placeholder = { Text("https://your-server/hooks/voice") },
                 leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -120,18 +102,18 @@ fun SettingsScreen(
                 isError = webhookUrl.isBlank(),
                 supportingText = {
                     if (webhookUrl.isBlank()) {
-                        Text("Required field", color = MaterialTheme.colorScheme.error)
+                        Text("Required", color = MaterialTheme.colorScheme.error)
                     }
                 }
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Auth Token (optional)
             OutlinedTextField(
                 value = authToken,
                 onValueChange = { authToken = it },
-                label = { Text("Auth Token (Bearer)") },
+                label = { Text("Auth Token") },
                 placeholder = { Text("Optional") },
                 leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
                 trailingIcon = {
@@ -147,100 +129,7 @@ fun SettingsScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Session Settings
-            Text(
-                text = "Session Settings",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Session ID
-            OutlinedTextField(
-                value = sessionId,
-                onValueChange = { sessionId = it },
-                label = { Text("Session ID") },
-                leadingIcon = { Icon(Icons.Default.Fingerprint, contentDescription = null) },
-                trailingIcon = {
-                    IconButton(onClick = { sessionId = settings.generateNewSessionId() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Generate new")
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                supportingText = { Text("Used to maintain conversation context") }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // User ID
-            OutlinedTextField(
-                value = userId,
-                onValueChange = { userId = it },
-                label = { Text("User ID") },
-                placeholder = { Text("Optional") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Hotword Settings
-            Text(
-                text = "Hotword Settings (Picovoice)",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Picovoice Access Key
-            OutlinedTextField(
-                value = picovoiceKey,
-                onValueChange = { picovoiceKey = it },
-                label = { Text("Picovoice Access Key") },
-                placeholder = { Text("Get from console.picovoice.ai") },
-                leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
-                trailingIcon = {
-                    IconButton(onClick = { showPicovoiceKey = !showPicovoiceKey }) {
-                        Icon(
-                            if (showPicovoiceKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Toggle visibility"
-                        )
-                    }
-                },
-                visualTransformation = if (showPicovoiceKey) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                supportingText = { Text("Required for hotword detection (free tier available)") }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Start on boot
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Start hotword detection on boot")
-                    Text(
-                        text = "Automatically start listening when device boots",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = startOnBoot,
-                    onCheckedChange = { startOnBoot = it }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // Tips
             Card(
@@ -265,9 +154,8 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "• Webhook URL is your OpenClaw endpoint\n" +
-                               "• Session ID maintains conversation context\n" +
-                               "• Picovoice Access Key is free at console.picovoice.ai\n" +
+                        text = "• Enter your OpenClaw webhook URL\n" +
+                               "• Auth Token is optional (depends on server config)\n" +
                                "• Wake word is \"Open Claw\"",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,

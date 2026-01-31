@@ -22,7 +22,7 @@ class BootReceiver : BroadcastReceiver() {
             
             val settings = SettingsRepository.getInstance(context)
             
-            if (settings.startOnBoot && settings.hotwordEnabled && settings.isConfigured()) {
+            if (settings.hotwordEnabled && settings.isConfigured()) {
                 Log.d(TAG, "Starting HotwordService on boot")
                 HotwordService.start(context)
             }

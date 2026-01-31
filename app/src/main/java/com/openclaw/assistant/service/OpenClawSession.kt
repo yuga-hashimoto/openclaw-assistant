@@ -145,7 +145,6 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context) {
                 webhookUrl = settings.webhookUrl,
                 message = message,
                 sessionId = settings.sessionId,
-                userId = settings.userId.takeIf { it.isNotBlank() },
                 authToken = settings.authToken.takeIf { it.isNotBlank() }
             )
 

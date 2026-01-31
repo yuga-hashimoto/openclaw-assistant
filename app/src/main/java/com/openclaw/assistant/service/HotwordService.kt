@@ -289,7 +289,6 @@ class HotwordService : Service() {
                 webhookUrl = settings.webhookUrl,
                 message = message,
                 sessionId = settings.sessionId,
-                userId = settings.userId.takeIf { it.isNotBlank() },
                 authToken = settings.authToken.takeIf { it.isNotBlank() }
             )
 

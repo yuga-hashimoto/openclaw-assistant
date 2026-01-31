@@ -31,7 +31,6 @@ class OpenClawClient {
         webhookUrl: String,
         message: String,
         sessionId: String,
-        userId: String? = null,
         authToken: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         try {

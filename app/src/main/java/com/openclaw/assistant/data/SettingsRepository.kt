@@ -4,11 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.openclaw.assistant.BuildConfig
 import java.util.UUID
 
 /**
- * 暗号化されたSharedPreferencesで設定を安全に保存
+ * Secure settings storage
  */
 class SettingsRepository(context: Context) {
 
@@ -24,17 +23,17 @@ class SettingsRepository(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    // Webhook URL（必須）
+    // Webhook URL (required)
     var webhookUrl: String
         get() = prefs.getString(KEY_WEBHOOK_URL, "") ?: ""
         set(value) = prefs.edit().putString(KEY_WEBHOOK_URL, value).apply()
 
-    // 認証トークン（オプション）
+    // Auth Token (optional)
     var authToken: String
         get() = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_AUTH_TOKEN, value).apply()
 
-    // セッションID（自動生成可）
+    // Session ID (auto-generated)
     var sessionId: String
         get() {
             val existing = prefs.getString(KEY_SESSION_ID, null)
@@ -42,39 +41,26 @@ class SettingsRepository(context: Context) {
         }
         set(value) = prefs.edit().putString(KEY_SESSION_ID, value).apply()
 
-    // ユーザーID（オプション）
-    var userId: String
-        get() = prefs.getString(KEY_USER_ID, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_USER_ID, value).apply()
+    // Picovoice Access Key (hardcoded)
+    val picovoiceAccessKey: String
+        get() = PICOVOICE_ACCESS_KEY
 
-    // Picovoice Access Key
-    var picovoiceAccessKey: String
-        get() = prefs.getString(KEY_PICOVOICE_KEY, null) 
-            ?: BuildConfig.PICOVOICE_ACCESS_KEY.takeIf { it.isNotBlank() } 
-            ?: ""
-        set(value) = prefs.edit().putString(KEY_PICOVOICE_KEY, value).apply()
-
-    // ホットワード検知有効化
+    // Hotword enabled
     var hotwordEnabled: Boolean
         get() = prefs.getBoolean(KEY_HOTWORD_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_HOTWORD_ENABLED, value).apply()
 
-    // 起動時にサービス開始
-    var startOnBoot: Boolean
-        get() = prefs.getBoolean(KEY_START_ON_BOOT, false)
-        set(value) = prefs.edit().putBoolean(KEY_START_ON_BOOT, value).apply()
-
-    // 設定が有効かチェック
+    // Check if configured
     fun isConfigured(): Boolean {
         return webhookUrl.isNotBlank()
     }
 
-    // 新しいセッションIDを生成
+    // Generate new session ID
     fun generateNewSessionId(): String {
         return UUID.randomUUID().toString()
     }
 
-    // セッションをリセット
+    // Reset session
     fun resetSession() {
         sessionId = generateNewSessionId()
     }
@@ -84,10 +70,10 @@ class SettingsRepository(context: Context) {
         private const val KEY_WEBHOOK_URL = "webhook_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_SESSION_ID = "session_id"
-        private const val KEY_USER_ID = "user_id"
-        private const val KEY_PICOVOICE_KEY = "picovoice_access_key"
         private const val KEY_HOTWORD_ENABLED = "hotword_enabled"
-        private const val KEY_START_ON_BOOT = "start_on_boot"
+
+        // Hardcoded Picovoice Access Key
+        private const val PICOVOICE_ACCESS_KEY = "NvmV8rffJPNXTVlKl1kctpOBQv1pHIycrLkEG1u8aMvNFGp/i7MWHQ=="
 
         @Volatile
         private var instance: SettingsRepository? = null
