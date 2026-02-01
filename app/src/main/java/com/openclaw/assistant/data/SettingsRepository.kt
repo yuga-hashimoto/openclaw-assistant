@@ -66,10 +66,10 @@ class SettingsRepository(context: Context) {
     // Get the actual wake words list for Vosk
     fun getWakeWords(): List<String> {
         return when (wakeWordPreset) {
-            WAKE_WORD_OPEN_CLAW -> listOf("open claw", "hey claw", "okay claw")
-            WAKE_WORD_HEY_ASSISTANT -> listOf("hey assistant", "okay assistant")
-            WAKE_WORD_JARVIS -> listOf("jarvis", "hey jarvis")
-            WAKE_WORD_COMPUTER -> listOf("computer", "hey computer")
+            WAKE_WORD_OPEN_CLAW -> listOf("open claw")
+            WAKE_WORD_HEY_ASSISTANT -> listOf("hey assistant")
+            WAKE_WORD_JARVIS -> listOf("jarvis")
+            WAKE_WORD_COMPUTER -> listOf("computer")
             WAKE_WORD_CUSTOM -> {
                 val custom = customWakeWord.trim().lowercase()
                 if (custom.isNotEmpty()) listOf(custom) else listOf("open claw")
@@ -81,12 +81,12 @@ class SettingsRepository(context: Context) {
     // Get display name for current wake word
     fun getWakeWordDisplayName(): String {
         return when (wakeWordPreset) {
-            WAKE_WORD_OPEN_CLAW -> "OpenClaw"
+            WAKE_WORD_OPEN_CLAW -> "Open Claw"
             WAKE_WORD_HEY_ASSISTANT -> "Hey Assistant"
             WAKE_WORD_JARVIS -> "Jarvis"
             WAKE_WORD_COMPUTER -> "Computer"
             WAKE_WORD_CUSTOM -> customWakeWord.ifEmpty { "Custom" }
-            else -> "OpenClaw"
+            else -> "Open Claw"
         }
     }
 
