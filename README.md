@@ -63,7 +63,7 @@ Download APK from [Releases](https://github.com/yuga-hashimoto/OpenClawAssistant
 
 ### 🔧 OpenClaw Configuration
 
-#### Webhook Example (config.yaml)
+Add a webhook for this app in your OpenClaw config:
 
 ```yaml
 hooks:
@@ -73,27 +73,10 @@ hooks:
       bearer: "your-secret-token"
 ```
 
-#### Request Format
+Then expose it externally using ngrok or similar:
 
-```json
-POST /hooks/voice
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "message": "User's spoken text",
-  "session_id": "uuid-xxx-xxx"
-}
-```
-
-#### Response Format
-
-Any of these formats are supported:
-
-```json
-{"response": "Response text"}
-{"text": "Response text"}
-{"message": "Response text"}
+```bash
+ngrok http 18080
 ```
 
 ### 🛠 Tech Stack
@@ -122,6 +105,55 @@ Pull Requests welcome! Feel free to report issues.
 ### 📄 License
 
 MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## 🤖 For AI Agents
+
+This section is for AI agents (like OpenClaw) that need to set up webhook integration.
+
+### Webhook Setup Instructions
+
+To configure OpenClaw for this Android app:
+
+1. **Add webhook to config.yaml:**
+```yaml
+hooks:
+  voice:
+    path: /hooks/voice
+    auth:
+      bearer: "<generate-secure-token>"
+```
+
+2. **Expose externally with ngrok:**
+```bash
+ngrok http 18080
+```
+
+3. **Provide to user:**
+   - Webhook URL: `https://<ngrok-subdomain>.ngrok.io/hooks/voice`
+   - Auth Token: The bearer token you set
+
+### Request/Response Format
+
+**Request (App → OpenClaw):**
+```json
+POST /hooks/voice
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "message": "User's spoken text",
+  "session_id": "uuid-xxx-xxx"
+}
+```
+
+**Response (OpenClaw → App):**
+```json
+{"response": "AI response text"}
+```
+
+Also accepts: `{"text": "..."}` or `{"message": "..."}`
 
 ---
 
@@ -180,7 +212,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ### 🔧 OpenClaw側の設定
 
-#### Webhook設定例 (config.yaml)
+config.yamlにWebhookを追加：
 
 ```yaml
 hooks:
@@ -190,27 +222,10 @@ hooks:
       bearer: "your-secret-token"
 ```
 
-#### リクエスト形式
+ngrokなどで外部公開：
 
-```json
-POST /hooks/voice
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "message": "ユーザーの発話テキスト",
-  "session_id": "uuid-xxx-xxx"
-}
-```
-
-#### レスポンス形式
-
-以下のいずれかの形式をサポート：
-
-```json
-{"response": "応答テキスト"}
-{"text": "応答テキスト"}
-{"message": "応答テキスト"}
+```bash
+ngrok http 18080
 ```
 
 ### 🛠 技術スタック
@@ -239,6 +254,53 @@ Pull Requests歓迎！Issues報告もお気軽に。
 ### 📄 ライセンス
 
 MIT License - 詳細は [LICENSE](LICENSE) を参照。
+
+---
+
+## 🤖 AI向け情報
+
+このセクションはOpenClawなどのAIエージェントがWebhook連携を設定するための情報です。
+
+### Webhook設定手順
+
+1. **config.yamlにWebhookを追加:**
+```yaml
+hooks:
+  voice:
+    path: /hooks/voice
+    auth:
+      bearer: "<安全なトークンを生成>"
+```
+
+2. **ngrokで外部公開:**
+```bash
+ngrok http 18080
+```
+
+3. **ユーザーに伝える情報:**
+   - Webhook URL: `https://<ngrok-subdomain>.ngrok.io/hooks/voice`
+   - Auth Token: 設定したbearerトークン
+
+### リクエスト/レスポンス形式
+
+**リクエスト（アプリ → OpenClaw）:**
+```json
+POST /hooks/voice
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "message": "ユーザーの発話テキスト",
+  "session_id": "uuid-xxx-xxx"
+}
+```
+
+**レスポンス（OpenClaw → アプリ）:**
+```json
+{"response": "AIの応答テキスト"}
+```
+
+`{"text": "..."}` や `{"message": "..."}` も対応。
 
 ---
 
