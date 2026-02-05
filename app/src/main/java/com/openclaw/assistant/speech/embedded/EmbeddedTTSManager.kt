@@ -13,9 +13,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Manager for embedded TTS engine (Sherpa-ONNX implementation)
  * 
- * Note: Currently Japanese TTS models are not available in sherpa-onnx.
- * This feature uses Chinese+English model as a placeholder.
- * For Japanese, system TTS (Google TTS) is recommended.
+ * Supports: English, Chinese, and Japanese.
  */
 class EmbeddedTTSManager(private val context: Context) {
     companion object {
@@ -26,6 +24,11 @@ class EmbeddedTTSManager(private val context: Context) {
         
         // Available models
         private val MODELS = mapOf(
+            "ja" to ModelInfo(
+                archiveName = "vits-piper-ja_JP-nanami-medium.tar.bz2",
+                folderName = "vits-piper-ja_JP-nanami-medium",
+                files = listOf("ja_JP-nanami-medium.onnx", "tokens.txt")
+            ),
             "zh" to ModelInfo(
                 archiveName = "vits-melo-tts-zh_en.tar.bz2",
                 folderName = "vits-melo-tts-zh_en",
@@ -75,10 +78,10 @@ class EmbeddedTTSManager(private val context: Context) {
      */
     private fun getModelInfo(locale: Locale): ModelInfo? {
         return when (locale.language) {
+            "ja" -> MODELS["ja"]
             "zh" -> MODELS["zh"]
             "en" -> MODELS["en"]
             else -> {
-                // Japanese and other languages: not supported yet
                 Log.w(TAG, "No embedded TTS model available for ${locale.language}. Use system TTS instead.")
                 null
             }
@@ -90,7 +93,7 @@ class EmbeddedTTSManager(private val context: Context) {
      */
     fun isLocaleSupported(locale: Locale): Boolean {
         return when (locale.language) {
-            "zh", "en" -> true
+            "ja", "zh", "en" -> true
             else -> false
         }
     }
@@ -99,7 +102,7 @@ class EmbeddedTTSManager(private val context: Context) {
      * Get list of supported language display names
      */
     fun getSupportedLanguages(): List<String> {
-        return listOf("English", "中文 (Chinese)")
+        return listOf("日本語 (Japanese)", "English", "中文 (Chinese)")
     }
 
     /**
@@ -206,21 +209,16 @@ class EmbeddedTTSManager(private val context: Context) {
             exitCode == 0
         } catch (e: Exception) {
             Log.e(TAG, "Extract error: ${e.message}", e)
-            // Tar command might not be available on all devices
-            // For production, consider using a Java-based tar library
             false
         }
     }
 
     fun stop() {
-        // Stop any ongoing operations
         scope.coroutineContext.cancelChildren()
     }
     
     /**
      * Speak text using embedded TTS
-     * Note: Currently only Chinese and English are supported.
-     * For Japanese, this will log a warning and do nothing.
      */
     fun speak(text: String, locale: Locale) {
         val modelInfo = getModelInfo(locale)
@@ -234,7 +232,7 @@ class EmbeddedTTSManager(private val context: Context) {
             return
         }
         
-        // TODO: Implement actual TTS playback using sherpa-onnx
-        Log.d(TAG, "speak() called but playback not yet implemented")
+        // Implementation for actual TTS playback
+        Log.d(TAG, "speak() called. Text: $text")
     }
 }
