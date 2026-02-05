@@ -1,5 +1,6 @@
 name: Build APK and Create Release
 
+on:
   push:
     branches: [main]
     tags:
