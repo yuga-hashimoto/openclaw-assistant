@@ -46,6 +46,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = SettingsRepository.getInstance(application)
     private val apiClient = OpenClawClient()
     private val speechManager = SpeechRecognizerManager(application)
+    private val embeddedTts = com.openclaw.assistant.speech.embedded.EmbeddedTTSManager(application)
     
     // TTS will be set from Activity
     private var tts: TextToSpeech? = null
@@ -192,7 +193,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSpeaking = true) }
             
-            val success = if (isTTSReady && tts != null) {
+            val success = if (settings.ttsEngine == SettingsRepository.ENGINE_EMBEDDED) {
+                embeddedTts.speak(text, Locale.getDefault())
+                true // Assuming success for now
+            } else if (isTTSReady && tts != null) {
                 speakWithTTS(text)
             } else {
                 Log.e(TAG, "TTS not ready, skipping speech")
@@ -262,6 +266,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopSpeaking() {
         lastInputWasVoice = false // Stop loop if manually stopped
         tts?.stop()
+        embeddedTts.stop()
         _uiState.update { it.copy(isSpeaking = false) }
         sendResumeBroadcast()
     }

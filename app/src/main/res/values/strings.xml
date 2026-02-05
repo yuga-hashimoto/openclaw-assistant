@@ -92,4 +92,9 @@
     <string name="wake_word_jarvis">Jarvis</string>
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">Custom…</string>
+    <string name="tts_engine_label">TTS Engine</string>
+    <string name="tts_engine_system">System Default (Google, etc.)</string>
+    <string name="tts_engine_embedded">OpenClaw Built-in (Rescue mode)</string>
+    <string name="model_not_installed">Voice model not installed</string>
+    <string name="download_model">Download Model (%s)</string>
 </resources>

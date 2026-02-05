@@ -133,9 +133,9 @@ class VoiceDiagnostics(private val context: Context) {
         if (engine != "com.google.android.tts") {
             suggestions.add(
                 DiagnosticSuggestion(
-                    "Currently using $engine. Switch to Google for better support.",
-                    "Select Google",
-                    Intent("com.android.settings.TTS_SETTINGS")
+                    "Currently using $engine. Switch to Google or Embedded engine.",
+                    "Settings",
+                    Intent(context, com.openclaw.assistant.SettingsActivity::class.java)
                 )
             )
         }

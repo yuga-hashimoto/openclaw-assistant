@@ -92,4 +92,9 @@
     <string name="wake_word_jarvis">Jarvis</string>
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">カスタム…</string>
+    <string name="tts_engine_label">音声合成エンジン</string>
+    <string name="tts_engine_system">システム標準 (Google等)</string>
+    <string name="tts_engine_embedded">OpenClaw 内蔵 (レスキューモード)</string>
+    <string name="model_not_installed">音声モデルが未インストールです</string>
+    <string name="download_model">モデルをダウンロード (%s)</string>
 </resources>

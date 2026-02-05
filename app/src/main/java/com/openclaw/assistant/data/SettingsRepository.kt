@@ -95,6 +95,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_TTS_ENABLED, true) // Default true as per user request
         set(value) = prefs.edit().putBoolean(KEY_TTS_ENABLED, value).apply()
 
+    // TTS Engine selection
+    var ttsEngine: String
+        get() = prefs.getString(KEY_TTS_ENGINE, ENGINE_SYSTEM) ?: ENGINE_SYSTEM
+        set(value) = prefs.edit().putString(KEY_TTS_ENGINE, value).apply()
+
     // Continuous mode
     var continuousMode: Boolean
         get() = prefs.getBoolean(KEY_CONTINUOUS_MODE, false)
@@ -131,6 +136,11 @@ class SettingsRepository(context: Context) {
         private const val KEY_IS_VERIFIED = "is_verified"
         private const val KEY_TTS_ENABLED = "tts_enabled"
         private const val KEY_CONTINUOUS_MODE = "continuous_mode"
+        private const val KEY_TTS_ENGINE = "tts_engine"
+
+        // TTS Engines
+        const val ENGINE_SYSTEM = "system"
+        const val ENGINE_EMBEDDED = "embedded"
 
         // Wake word presets
         const val WAKE_WORD_OPEN_CLAW = "open_claw"

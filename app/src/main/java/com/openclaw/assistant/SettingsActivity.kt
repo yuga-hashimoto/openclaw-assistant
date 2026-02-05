@@ -64,7 +64,12 @@ fun SettingsScreen(
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
+    var ttsEngine by remember { mutableStateOf(settings.ttsEngine) }
     
+    val embeddedTts = remember { com.openclaw.assistant.speech.embedded.EmbeddedTTSManager(context) }
+    var isModelInstalled by remember { mutableStateOf(embeddedTts.isModelInstalled(java.util.Locale.getDefault())) }
+    var isDownloading by remember { mutableStateOf(false) }
+
     var showAuthToken by remember { mutableStateOf(false) }
     var showWakeWordMenu by remember { mutableStateOf(false) }
     
@@ -102,6 +107,7 @@ fun SettingsScreen(
                             settings.continuousMode = continuousMode
                             settings.wakeWordPreset = wakeWordPreset
                             settings.customWakeWord = customWakeWord
+                            settings.ttsEngine = ttsEngine
                             onSave()
                         },
                         enabled = webhookUrl.isNotBlank() && !isTesting
@@ -278,6 +284,59 @@ fun SettingsScreen(
                             Text(stringResource(R.string.auto_start_mic), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                         }
                         Switch(checked = continuousMode, onCheckedChange = { continuousMode = it })
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+
+                    // TTS Engine selection
+                    Text(stringResource(R.string.tts_engine_label), style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { ttsEngine = SettingsRepository.ENGINE_SYSTEM },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = ttsEngine == SettingsRepository.ENGINE_SYSTEM,
+                            onClick = { ttsEngine = SettingsRepository.ENGINE_SYSTEM }
+                        )
+                        Text(stringResource(R.string.tts_engine_system))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { ttsEngine = SettingsRepository.ENGINE_EMBEDDED },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = ttsEngine == SettingsRepository.ENGINE_EMBEDDED,
+                            onClick = { ttsEngine = SettingsRepository.ENGINE_EMBEDDED }
+                        )
+                        Text(stringResource(R.string.tts_engine_embedded))
+                    }
+
+                    if (ttsEngine == SettingsRepository.ENGINE_EMBEDDED) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (isModelInstalled) {
+                            Text("✅ " + stringResource(R.string.ready), color = Color(0xFF4CAF50), fontSize = 12.sp)
+                        } else {
+                            Button(
+                                onClick = {
+                                    isDownloading = true
+                                    embeddedTts.downloadModel(java.util.Locale.getDefault(), {}, { success ->
+                                        isDownloading = false
+                                        isModelInstalled = success
+                                    })
+                                },
+                                enabled = !isDownloading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (isDownloading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                                } else {
+                                    Text(stringResource(R.string.download_model, java.util.Locale.getDefault().displayName))
+                                }
+                            }
+                        }
                     }
                 }
             }
