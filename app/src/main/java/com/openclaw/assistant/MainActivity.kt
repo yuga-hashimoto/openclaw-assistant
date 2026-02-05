@@ -369,33 +369,123 @@ fun StatusCard(isConfigured: Boolean) {
 
 @Composable
 fun DiagnosticPanel(diagnostic: VoiceDiagnostic) {
+    val hasIssues = diagnostic.sttStatus != DiagnosticStatus.READY || 
+                    diagnostic.ttsStatus != DiagnosticStatus.READY
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasIssues) 
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            else 
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Voice System Check", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                DiagnosticItem(
-                    label = "Input (Mic)", 
-                    status = diagnostic.sttStatus, 
-                    modifier = Modifier.weight(1f)
-                )
-                DiagnosticItem(
-                    label = "Output (TTS)", 
-                    status = diagnostic.ttsStatus, 
-                    modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (hasIssues) "⚠️ Voice System Issues" else "✅ Voice System Ready",
+                    fontWeight = FontWeight.Bold, 
+                    fontSize = 14.sp
                 )
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Voice Input Status
+            DiagnosticItemWithReason(
+                label = "Voice Input (Mic)",
+                status = diagnostic.sttStatus,
+                reason = diagnostic.sttReason,
+                engine = diagnostic.sttEngine
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Voice Output Status
+            DiagnosticItemWithReason(
+                label = "Voice Output (TTS)",
+                status = diagnostic.ttsStatus,
+                reason = diagnostic.ttsReason,
+                engine = diagnostic.ttsEngine
+            )
 
             if (diagnostic.suggestions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "How to fix:",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 diagnostic.suggestions.forEach { suggestion ->
                     SuggestionItem(suggestion)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun DiagnosticItemWithReason(
+    label: String, 
+    status: DiagnosticStatus, 
+    reason: String?,
+    engine: String?
+) {
+    val color = when (status) {
+        DiagnosticStatus.READY -> Color(0xFF4CAF50)
+        DiagnosticStatus.WARNING -> Color(0xFFFFC107)
+        DiagnosticStatus.ERROR -> Color(0xFFF44336)
+    }
+    val icon = when (status) {
+        DiagnosticStatus.READY -> Icons.Default.CheckCircle
+        DiagnosticStatus.WARNING -> Icons.Default.Warning
+        DiagnosticStatus.ERROR -> Icons.Default.Error
+    }
+    val statusText = when (status) {
+        DiagnosticStatus.READY -> "Ready"
+        DiagnosticStatus.WARNING -> "Warning"
+        DiagnosticStatus.ERROR -> "Unavailable"
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                if (engine != null && status == DiagnosticStatus.READY) {
+                    Text(
+                        text = engine,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Text(
+                text = statusText,
+                fontSize = 12.sp,
+                color = color,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        if (reason != null && status != DiagnosticStatus.READY) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "→ $reason",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(start = 28.dp)
+            )
         }
     }
 }
