@@ -24,19 +24,39 @@ class TTSManager(context: Context) {
     private var pendingSpeak: (() -> Unit)? = null
 
     init {
-        Log.e(TAG, "Initializing TTS with system default engine...")
-        // Use system default engine to support Samsung, Google, etc.
-        tts = TextToSpeech(context.applicationContext) { status ->
-            Log.e(TAG, "TTS init callback, status=$status (SUCCESS=${TextToSpeech.SUCCESS})")
+        initializeWithPriority(context.applicationContext)
+    }
+
+    private fun initializeWithPriority(context: Context) {
+        Log.e(TAG, "Initializing TTS with Google engine priority...")
+        // Try Google TTS explicitly for better compatibility on MIUI/Chinese ROMs
+        tts = TextToSpeech(context, { status ->
             if (status == TextToSpeech.SUCCESS) {
-                isInitialized = true
-                TTSUtils.setupVoice(tts)
-                pendingSpeak?.invoke()
-                pendingSpeak = null
+                Log.e(TAG, "TTS initialized successfully with Google engine")
+                onInitSuccess()
             } else {
-                Log.e(TAG, "TTS init FAILED with status=$status")
+                Log.e(TAG, "Google TTS initialization FAILED (status=$status), retrying with system default...")
+                retryWithDefault(context)
+            }
+        }, TTSUtils.GOOGLE_TTS_PACKAGE)
+    }
+
+    private fun retryWithDefault(context: Context) {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                Log.e(TAG, "TTS initialized successfully with system default engine")
+                onInitSuccess()
+            } else {
+                Log.e(TAG, "All TTS initialization attempts FAILED (status=$status)")
             }
         }
+    }
+
+    private fun onInitSuccess() {
+        isInitialized = true
+        TTSUtils.setupVoice(tts)
+        pendingSpeak?.invoke()
+        pendingSpeak = null
     }
 
     /**

@@ -2,7 +2,6 @@ package com.openclaw.assistant.speech
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
 
@@ -11,6 +10,7 @@ import java.util.Locale
  */
 object TTSUtils {
     private const val TAG = "TTSUtils"
+    const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
 
     /**
      * ロケールと高品質な音声のセットアップ
@@ -19,9 +19,17 @@ object TTSUtils {
         val currentLocale = Locale.getDefault()
         Log.e(TAG, "Current system locale: $currentLocale")
 
+        // エンジン情報をログ出力
+        try {
+            val engine = tts?.defaultEngine
+            Log.e(TAG, "Using TTS Engine: $engine")
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not get default engine: ${e.message}")
+        }
+
         // システムロケールの設定を試みる
         val result = tts?.setLanguage(currentLocale)
-        Log.e(TAG, "setLanguage result=$result")
+        Log.e(TAG, "setLanguage($currentLocale) result=$result")
 
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
             // デフォルトが失敗した場合は英語(US)にフォールバック
@@ -33,6 +41,8 @@ object TTSUtils {
         try {
             val targetLang = tts?.language?.language
             val voices = tts?.voices
+            Log.e(TAG, "Available voices count: ${voices?.size ?: 0}")
+            
             val bestVoice = voices?.filter { it.locale.language == targetLang }
                 ?.firstOrNull { !it.isNetworkConnectionRequired }
                 ?: voices?.firstOrNull { it.locale.language == targetLang }
@@ -53,13 +63,9 @@ object TTSUtils {
 
     /**
      * テキスト内容に応じてTTSの言語や読み上げ速度を簡易的に切り替える。
-     *
-     * - 「日本語」と判定する条件は、ひらがな・カタカナ・漢字が含まれている場合。
-     * - アルファベットが含まれている場合は「英語（またはラテン文字ベース）」とみなす。
-     * - いずれにも該当しない場合はシステムデフォルトを使用する。
      */
     fun applyLanguageForText(tts: TextToSpeech?, text: String) {
-        if (text.isEmpty()) return
+        if (text.isEmpty() || tts == null) return
 
         // 効率のため最初の100文字程度で判定
         val sample = text.take(100)
@@ -72,18 +78,18 @@ object TTSUtils {
         }
 
         if (hasJapanese) {
-            tts?.language = Locale.JAPANESE
-            tts?.setSpeechRate(1.5f)
+            tts.language = Locale.JAPANESE
+            tts.setSpeechRate(1.5f)
         } else {
             val hasLatin = sample.any { it in 'a'..'z' || it in 'A'..'Z' }
             if (hasLatin) {
-                tts?.language = Locale.US
-                tts?.setSpeechRate(1.2f)
+                tts.language = Locale.US
+                tts.setSpeechRate(1.2f)
             } else {
                 // 日本語も英語も含まれない場合はシステムデフォルトに戻す
                 val defaultLocale = Locale.getDefault()
-                tts?.language = defaultLocale
-                tts?.setSpeechRate(1.0f)
+                tts.language = defaultLocale
+                tts.setSpeechRate(1.0f)
             }
         }
     }

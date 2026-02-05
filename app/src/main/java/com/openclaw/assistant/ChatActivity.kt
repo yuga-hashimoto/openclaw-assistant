@@ -53,14 +53,14 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private val viewModel: ChatViewModel by viewModels()
     private var tts: TextToSpeech? = null
+    private var isRetry = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize TTS with Activity context (important for MIUI!)
-        Log.e(TAG, "Initializing TTS with Activity context...")
-        // Using system default engine (no explicit package name) for better compatibility
-        tts = TextToSpeech(this, this)
+        // Try Google TTS first for better compatibility on Chinese ROMs
+        initializeTTS()
 
         // Request Microphone permission if not granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
@@ -95,6 +95,15 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun initializeTTS() {
+        Log.e(TAG, "Initializing TTS with Google engine priority (isRetry=$isRetry)...")
+        if (!isRetry) {
+            tts = TextToSpeech(this, this, TTSUtils.GOOGLE_TTS_PACKAGE)
+        } else {
+            tts = TextToSpeech(this, this)
+        }
+    }
+
     override fun onInit(status: Int) {
         Log.e(TAG, "TTS onInit callback, status=$status (SUCCESS=${TextToSpeech.SUCCESS})")
         if (status == TextToSpeech.SUCCESS) {
@@ -105,6 +114,10 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             Log.e(TAG, "TTS initialized successfully and passed to ViewModel")
         } else {
             Log.e(TAG, "TTS initialization FAILED with status=$status")
+            if (!isRetry) {
+                isRetry = true
+                initializeTTS()
+            }
         }
     }
 
