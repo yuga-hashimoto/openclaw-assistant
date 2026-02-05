@@ -258,7 +258,7 @@ fun StatusCard(isConfigured: Boolean) {
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(text = if (isConfigured) stringResource(R.string.ready) else stringResource(R.string.setup_required), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Text(text = if (isConfigured) stringResource(R.string.connected_to_openclaw) else stringResource(R.string.error_no_webhook), fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
+                Text(text = if (isConfigured) stringResource(R.string.connected_to_openclaw) else stringResource(R.string.error_no_webhook), fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f) )
             }
         }
     }
@@ -350,17 +350,24 @@ fun UsageStep(number: String, text: String) {
 
 @Composable
 fun HowToUseDialog(onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.how_to_use)) }, text = { Column { (1..4).forEach { UsageStep(it.toString(), stringResource(context.resources.getIdentifier("step_$it", "string", context.packageName))) } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.got_it)) } })
+    val context = LocalContext.current
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.how_to_use)) }, text = { Column { (1..4).forEach { 
+        val resId = context.resources.getIdentifier("step_$it", "string", context.packageName)
+        UsageStep(it.toString(), stringResource(resId)) } } }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.got_it)) } })
 }
 
 @Composable
 fun TroubleshootingDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
     AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.assist_gesture_not_working)) }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(stringResource(R.string.troubleshooting_intro), fontSize = 14.sp)
-            listOf("circle_to_search", "gesture_navigation", "google_app_setting", "refresh_binding").forEach { BulletPoint(stringResource(context.resources.getIdentifier("${it}_title", "string", context.packageName)), stringResource(context.resources.getIdentifier("${it}_desc", "string", context.packageName))) }
+            listOf("circle_to_search", "gesture_navigation", "google_app_setting", "refresh_binding").forEach { key -> 
+                val titleId = context.resources.getIdentifier("${key}_title", "string", context.packageName)
+                val descId = context.resources.getIdentifier("${key}_desc", "string", context.packageName)
+                BulletPoint(stringResource(titleId), stringResource(descId)) 
+            }
             Spacer(modifier = Modifier.height(8.dp)); HorizontalDivider(); Spacer(modifier = Modifier.height(8.dp))
-            val context = LocalContext.current
             Button(onClick = { context.startService(Intent(context, OpenClawAssistantService::class.java).apply { action = OpenClawAssistantService.ACTION_SHOW_ASSISTANT }) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text(stringResource(R.string.debug_force_start)) }
         }
     }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.got_it)) } })
