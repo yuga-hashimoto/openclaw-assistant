@@ -84,6 +84,23 @@ class EmbeddedTTSManager(private val context: Context) {
             }
         }
     }
+    
+    /**
+     * Check if embedded TTS is available for this locale
+     */
+    fun isLocaleSupported(locale: Locale): Boolean {
+        return when (locale.language) {
+            "zh", "en" -> true
+            else -> false
+        }
+    }
+    
+    /**
+     * Get list of supported language display names
+     */
+    fun getSupportedLanguages(): List<String> {
+        return listOf("English", "中文 (Chinese)")
+    }
 
     /**
      * Download voice models

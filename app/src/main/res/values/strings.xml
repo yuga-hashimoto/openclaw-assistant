@@ -97,4 +97,5 @@
     <string name="tts_engine_embedded">OpenClaw Built-in (Rescue mode)</string>
     <string name="model_not_installed">Voice model not installed</string>
     <string name="download_model">Download Model (%s)</string>
+    <string name="embedded_tts_not_available">Built-in TTS only supports English and Chinese. Your language uses System TTS.</string>
 </resources>

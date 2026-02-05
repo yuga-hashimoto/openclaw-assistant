@@ -70,6 +70,7 @@ fun SettingsScreen(
     var ttsEngine by remember { mutableStateOf(settings.ttsEngine) }
     
     val embeddedTts = remember { com.openclaw.assistant.speech.embedded.EmbeddedTTSManager(context) }
+    val isEmbeddedTtsSupported = remember { embeddedTts.isLocaleSupported(java.util.Locale.getDefault()) }
     var isModelInstalled by remember { mutableStateOf(embeddedTts.isModelInstalled(java.util.Locale.getDefault())) }
     var isDownloading by remember { mutableStateOf(false) }
 
@@ -305,40 +306,51 @@ fun SettingsScreen(
                         Text(stringResource(R.string.tts_engine_system))
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { ttsEngine = SettingsRepository.ENGINE_EMBEDDED },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = ttsEngine == SettingsRepository.ENGINE_EMBEDDED,
-                            onClick = { ttsEngine = SettingsRepository.ENGINE_EMBEDDED }
-                        )
-                        Text(stringResource(R.string.tts_engine_embedded))
-                    }
+                    // Only show embedded TTS option if the current locale is supported
+                    if (isEmbeddedTtsSupported) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { ttsEngine = SettingsRepository.ENGINE_EMBEDDED },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = ttsEngine == SettingsRepository.ENGINE_EMBEDDED,
+                                onClick = { ttsEngine = SettingsRepository.ENGINE_EMBEDDED }
+                            )
+                            Text(stringResource(R.string.tts_engine_embedded))
+                        }
 
-                    if (ttsEngine == SettingsRepository.ENGINE_EMBEDDED) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (isModelInstalled) {
-                            Text("✅ " + stringResource(R.string.ready), color = Color(0xFF4CAF50), fontSize = 12.sp)
-                        } else {
-                            Button(
-                                onClick = {
-                                    isDownloading = true
-                                    embeddedTts.downloadModel(java.util.Locale.getDefault(), {}, { success ->
-                                        isDownloading = false
-                                        isModelInstalled = success
-                                    })
-                                },
-                                enabled = !isDownloading,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                if (isDownloading) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                                } else {
-                                    Text(stringResource(R.string.download_model, java.util.Locale.getDefault().displayName))
+                        if (ttsEngine == SettingsRepository.ENGINE_EMBEDDED) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            if (isModelInstalled) {
+                                Text("✅ " + stringResource(R.string.ready), color = Color(0xFF4CAF50), fontSize = 12.sp)
+                            } else {
+                                Button(
+                                    onClick = {
+                                        isDownloading = true
+                                        embeddedTts.downloadModel(java.util.Locale.getDefault(), {}, { success ->
+                                            isDownloading = false
+                                            isModelInstalled = success
+                                        })
+                                    },
+                                    enabled = !isDownloading,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (isDownloading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                                    } else {
+                                        Text(stringResource(R.string.download_model, java.util.Locale.getDefault().displayName))
+                                    }
                                 }
                             }
                         }
+                    } else {
+                        // Show info that embedded TTS is not available for this language
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.embedded_tts_not_available),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
