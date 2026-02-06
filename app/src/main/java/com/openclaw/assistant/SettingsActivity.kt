@@ -283,29 +283,6 @@ fun SettingsScreen(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
 
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(stringResource(R.string.voice_speed), style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    text = "%.1fx".format(ttsSpeed),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            
-                            Slider(
-                                value = ttsSpeed,
-                                onValueChange = { ttsSpeed = it },
-                                valueRange = 0.5f..3.0f,
-                                steps = 24, // Steps of 0.1
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
                             // TTS Engine Selection
                             ExposedDropdownMenuBox(
                                 expanded = showEngineMenu,
@@ -359,6 +336,42 @@ fun SettingsScreen(
                                         )
                                     }
                                 }
+                            }
+
+
+
+                            // Show Speed setting ONLY if Google TTS is selected (or Auto resolving to Google)
+                            val effectiveEngine = if (ttsEngine.isEmpty()) {
+                                com.openclaw.assistant.speech.TTSEngineUtils.getDefaultEngine(context)
+                            } else {
+                                ttsEngine
+                            }
+                            
+                            val isGoogleTTS = effectiveEngine == SettingsRepository.GOOGLE_TTS_PACKAGE
+
+                            if (isGoogleTTS) {
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(stringResource(R.string.voice_speed), style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = "%.1fx".format(ttsSpeed),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                
+                                Slider(
+                                    value = ttsSpeed,
+                                    onValueChange = { ttsSpeed = it },
+                                    valueRange = 0.5f..3.0f,
+                                    steps = 24, // Steps of 0.1
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     }

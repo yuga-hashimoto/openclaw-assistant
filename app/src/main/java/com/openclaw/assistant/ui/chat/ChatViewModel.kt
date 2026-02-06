@@ -115,7 +115,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun createNewSession() {
         viewModelScope.launch {
             val simpleDateFormat = java.text.SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
-            val newId = chatRepository.createSession("Chat ${simpleDateFormat.format(java.util.Date())}")
+            val app = getApplication<Application>()
+            val newId = chatRepository.createSession(String.format(app.getString(com.openclaw.assistant.R.string.chat_session_title_format), simpleDateFormat.format(java.util.Date())))
             _currentSessionId.value = newId
             settings.sessionId = newId // Sync for API use
         }
@@ -238,7 +239,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e(TAG, "Starting speechManager.startListening(), isListening=true")
                     _uiState.update { it.copy(isListening = true, partialText = "") }
 
-                    speechManager.startListening("ja-JP").collect { result ->
+                    speechManager.startListening(null).collect { result ->
                         Log.e(TAG, "SpeechResult: $result")
                         when (result) {
                             is SpeechResult.PartialResult -> {

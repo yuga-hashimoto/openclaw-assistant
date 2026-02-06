@@ -143,7 +143,7 @@ class HotwordService : Service(), VoskRecognitionListener {
         val pendingIntent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
-            .setContentText("Say \"Open Claw\" to activate")
+            .setContentText(getString(R.string.notification_content))
             .setSmallIcon(R.drawable.ic_mic)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -273,19 +273,20 @@ class HotwordService : Service(), VoskRecognitionListener {
 
         Log.d(TAG, "Hotword Detected! Triggering Assistant Overlay...")
 
-        // Ensure speechService is safely stopped
-        speechService?.let {
-            try {
-                it.stop()
-                it.shutdown()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to stop speech service", e)
-            }
-        }
-        speechService = null
-
+        // Stop service on Main thread to avoid race conditions
         scope.launch {
-            delay(100) // Wait for resource release
+            // Ensure speechService is safely stopped
+            speechService?.let {
+                try {
+                    it.stop()
+                    it.shutdown()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to stop speech service", e)
+                }
+            }
+            speechService = null
+
+            delay(300) // Wait for resource release
 
             val intent = Intent(this@HotwordService, OpenClawAssistantService::class.java).apply {
                 action = OpenClawAssistantService.ACTION_SHOW_ASSISTANT

@@ -75,16 +75,16 @@ class SpeechRecognizerManager(private val context: Context) {
 
             override fun onError(error: Int) {
                 val errorMessage = when (error) {
-                    SpeechRecognizer.ERROR_AUDIO -> "オーディオエラー"
-                    SpeechRecognizer.ERROR_CLIENT -> "クライアントエラー"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "権限が不足しています"
-                    SpeechRecognizer.ERROR_NETWORK -> "ネットワークエラー"
-                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "ネットワークタイムアウト"
-                    SpeechRecognizer.ERROR_NO_MATCH -> "認識できませんでした"
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "認識サービスがビジー - 再試行します"
-                    SpeechRecognizer.ERROR_SERVER -> "サーバーエラー"
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "音声入力がありませんでした"
-                    else -> "不明なエラー ($error)"
+                    SpeechRecognizer.ERROR_AUDIO -> context.getString(com.openclaw.assistant.R.string.error_speech_audio)
+                    SpeechRecognizer.ERROR_CLIENT -> context.getString(com.openclaw.assistant.R.string.error_speech_client)
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> context.getString(com.openclaw.assistant.R.string.error_speech_permissions)
+                    SpeechRecognizer.ERROR_NETWORK -> context.getString(com.openclaw.assistant.R.string.error_speech_network)
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> context.getString(com.openclaw.assistant.R.string.error_speech_timeout)
+                    SpeechRecognizer.ERROR_NO_MATCH -> context.getString(com.openclaw.assistant.R.string.error_speech_no_match)
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> context.getString(com.openclaw.assistant.R.string.error_speech_busy)
+                    SpeechRecognizer.ERROR_SERVER -> context.getString(com.openclaw.assistant.R.string.error_speech_server)
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> context.getString(com.openclaw.assistant.R.string.error_speech_input_timeout)
+                    else -> context.getString(com.openclaw.assistant.R.string.error_speech_unknown, error)
                 }
                 
                 trySend(SpeechResult.Error(errorMessage, error))
@@ -105,7 +105,7 @@ class SpeechRecognizerManager(private val context: Context) {
                         alternatives = matches.drop(1)
                     ))
                 } else {
-                    trySend(SpeechResult.Error("認識結果がありません", SpeechRecognizer.ERROR_NO_MATCH))
+                    trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_no_recognition_result), SpeechRecognizer.ERROR_NO_MATCH))
                 }
                 close()
             }
@@ -136,7 +136,7 @@ class SpeechRecognizerManager(private val context: Context) {
              try {
                  newRecognizer.startListening(intent)
              } catch (e: Exception) {
-                 trySend(SpeechResult.Error("開始エラー: ${e.message}"))
+                 trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_start_failed, e.message)))
                  close()
              }
         })

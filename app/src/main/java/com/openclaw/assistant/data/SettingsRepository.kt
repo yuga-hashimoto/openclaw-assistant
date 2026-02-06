@@ -150,6 +150,8 @@ class SettingsRepository(context: Context) {
         const val WAKE_WORD_JARVIS = "jarvis"
         const val WAKE_WORD_COMPUTER = "computer"
         const val WAKE_WORD_CUSTOM = "custom"
+        
+        const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
 
 
 

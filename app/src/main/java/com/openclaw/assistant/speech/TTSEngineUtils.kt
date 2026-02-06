@@ -35,4 +35,16 @@ object TTSEngineUtils {
             )
         }.distinctBy { it.name } // Ensure no duplicates
     }
+
+
+    fun getDefaultEngine(context: Context): String? {
+        return try {
+            android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                "tts_default_synth"
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

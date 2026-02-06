@@ -1,9 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OpenClaw Assistant</string>
-    <string name="notification_channel_name">Hotword Detection</string>
+    <string name="notification_channel_name">Hotword Service</string>
     <string name="notification_channel_description">Always-on voice detection service</string>
     <string name="notification_title">OpenClaw Assistant</string>
+    <string name="notification_content">Say "Open Claw" to activate</string>
+    <string name="default_session_title_format">Voice Session %s</string>
+    <string name="chat_session_title_format">Chat %s</string>
+    <string name="error_config_required">Please configure Webhook URL</string>
+    <string name="config_required">Configuration required</string>
+    <string name="state_listening">Listening...</string>
+    <string name="state_processing">Processing...</string>
+    <string name="state_thinking">Thinking...</string>
+    <string name="state_speaking">Speaking...</string>
+    <string name="state_error">Error</string>
+    <string name="state_ready">Ready</string>
+    <string name="action_try_again">Try again</string>
+    <string name="error_speech_audio">Audio error</string>
+    <string name="error_speech_client">Client error</string>
+    <string name="error_speech_permissions">Insufficient permissions</string>
+    <string name="error_speech_network">Network error</string>
+    <string name="error_speech_timeout">Network timeout</string>
+    <string name="error_speech_no_match">No match found</string>
+    <string name="error_speech_busy">Recognition service busy - retrying</string>
+    <string name="error_speech_server">Server error</string>
+    <string name="error_speech_input_timeout">No speech input</string>
+    <string name="error_speech_unknown">Unknown error (%d)</string>
+    <string name="error_no_response">No response</string>
+    <string name="error_network">Network error</string>
+    <string name="error_speech_general">Speech error</string>
+    <string name="error_no_recognition_result">No recognition result</string>
+    <string name="error_start_failed">Start error: %s</string>
     <string name="notification_text">Say \"Open Claw\" to activate</string>
     <string name="settings_title">Settings</string>
     <string name="webhook_url_label">Webhook URL</string>
@@ -29,7 +56,7 @@
     <string name="speaking">Speaking…</string>
     <string name="ready">Ready</string>
     <string name="error_no_webhook">Please configure Webhook URL</string>
-    <string name="error_network">Network error</string>
+
     <string name="error_speech">Speech recognition error</string>
     
     <!-- Main Screen -->

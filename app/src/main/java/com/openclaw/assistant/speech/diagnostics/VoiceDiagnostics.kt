@@ -81,6 +81,7 @@ class VoiceDiagnostics(private val context: Context) {
     private fun checkTTS(tts: TextToSpeech?): ComponentCheckResult {
         val engine = tts?.defaultEngine
         val currentLocale = Locale.getDefault()
+        var status = DiagnosticStatus.READY
         val suggestions = mutableListOf<DiagnosticSuggestion>()
         
         if (tts == null || engine == null) {
@@ -115,11 +116,7 @@ class VoiceDiagnostics(private val context: Context) {
         }
 
         val langResult = tts.isLanguageAvailable(currentLocale)
-        val jaResult = tts.isLanguageAvailable(Locale.JAPANESE)
-        
-        var status = DiagnosticStatus.READY
-
-        if (langResult < TextToSpeech.LANG_AVAILABLE && jaResult < TextToSpeech.LANG_AVAILABLE) {
+        if (langResult < TextToSpeech.LANG_AVAILABLE) {
             status = DiagnosticStatus.WARNING
             suggestions.add(
                 DiagnosticSuggestion(

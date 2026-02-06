@@ -34,6 +34,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.openclaw.assistant.R
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.api.OpenClawClient
@@ -166,7 +167,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         // CREATE NEW SESSION
         scope.launch {
             try {
-                currentSessionId = chatRepository.createSession(title = "Voice Session " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()))
+                currentSessionId = chatRepository.createSession(title = String.format(context.getString(R.string.default_session_title_format), java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())))
                 // Store this ID in settings if we want the ChatActivity to resume it?
                 // For now, standalone usage.
                 settings.sessionId = currentSessionId!! 
@@ -178,9 +179,12 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         // 設定チェック
         if (!settings.isConfigured()) {
             currentState.value = AssistantState.ERROR
-            errorMessage.value = "Please configure Webhook URL"
-            displayText.value = "Configuration required"
+        if (!settings.isConfigured()) {
+            currentState.value = AssistantState.ERROR
+            errorMessage.value = context.getString(R.string.error_config_required)
+            displayText.value = context.getString(R.string.config_required)
             return
+        }
         }
 
         // 音声認識開始
@@ -246,7 +250,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             var hasActuallySpoken = false
             
             // Wait for resources
-            delay(300)
+            delay(500)
 
             while (isActive && !hasActuallySpoken) {
                 // Request audio focus
@@ -259,11 +263,11 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 } else {
                     @Suppress("DEPRECATION")
                     audioManager.requestAudioFocus(null,
-                        android.media.AudioManager.STREAM_VOICE_CALL,
+                        android.media.AudioManager.STREAM_MUSIC,
                         android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 }
 
-                speechManager.startListening("ja-JP").collectLatest { result ->
+                speechManager.startListening(null).collectLatest { result ->
                     when (result) {
                         is SpeechResult.Ready -> {
                             currentState.value = AssistantState.LISTENING
@@ -360,13 +364,13 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                         errorMessage.value = response.error
                     } else {
                         currentState.value = AssistantState.ERROR
-                        errorMessage.value = "No response"
+                        errorMessage.value = context.getString(R.string.error_no_response)
                     }
                 },
                 onFailure = { error ->
                     Log.e(TAG, "API error", error)
                     currentState.value = AssistantState.ERROR
-                    errorMessage.value = error.message ?: "Network error"
+                    errorMessage.value = error.message ?: context.getString(R.string.error_network)
                 }
             )
         }
@@ -389,7 +393,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 }
             } else {
                 currentState.value = AssistantState.ERROR
-                errorMessage.value = "Speech error"
+                errorMessage.value = context.getString(R.string.error_speech_general)
             }
         }
     }
@@ -528,12 +532,12 @@ fun AssistantUI(
             // 状態テキスト
             Text(
                 text = when (state) {
-                    AssistantState.LISTENING -> "Listening..."
-                    AssistantState.PROCESSING -> "Processing..."
-                    AssistantState.THINKING -> "Thinking..."
-                    AssistantState.SPEAKING -> "Speaking..."
-                    AssistantState.ERROR -> "Error"
-                    else -> "Ready"
+                    AssistantState.LISTENING -> stringResource(R.string.state_listening)
+                    AssistantState.PROCESSING -> stringResource(R.string.state_processing)
+                    AssistantState.THINKING -> stringResource(R.string.state_thinking)
+                    AssistantState.SPEAKING -> stringResource(R.string.state_speaking)
+                    AssistantState.ERROR -> stringResource(R.string.state_error)
+                    else -> stringResource(R.string.state_ready)
                 },
                 fontSize = 14.sp,
                 color = Color.Gray
@@ -585,7 +589,7 @@ fun AssistantUI(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = onRetry) {
-                    Text("Try again")
+                    Text(stringResource(R.string.action_try_again))
                 }
             }
 
