@@ -35,6 +35,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.openclaw.assistant.BuildConfig
 import com.openclaw.assistant.R
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.api.OpenClawClient
@@ -368,7 +369,11 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     }
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "API error", error)
+                    if (BuildConfig.DEBUG) {
+                        Log.e(TAG, "API error", error)
+                    } else {
+                        Log.e(TAG, "API error: ${error.javaClass.simpleName}")
+                    }
                     currentState.value = AssistantState.ERROR
                     errorMessage.value = error.message ?: context.getString(R.string.error_network)
                 }
