@@ -323,3 +323,4 @@ Authorization: Bearer <token>
 ---
 
 Made with ❤️ for [OpenClaw](https://github.com/openclaw/openclaw)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R5R51S97C4)
