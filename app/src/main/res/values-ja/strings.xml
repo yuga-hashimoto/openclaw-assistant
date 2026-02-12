@@ -97,4 +97,24 @@
     <string name="wake_word_jarvis">Jarvis</string>
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">カスタム…</string>
+
+    <!-- Connection Mode -->
+    <string name="connection_mode">接続モード</string>
+    <string name="connection_mode_auto">自動（推奨）</string>
+    <string name="connection_mode_websocket">WebSocket</string>
+    <string name="connection_mode_http">HTTP</string>
+    <string name="gateway_port">ゲートウェイポート</string>
+    <string name="streaming_response">応答をストリーミング中…</string>
+    <string name="stop_generation">停止</string>
+    <string name="connection_status_connected">接続中 (WebSocket)</string>
+    <string name="connection_status_http">HTTPモード</string>
+    <string name="connection_status_disconnected">未接続</string>
+    <string name="connection_status_reconnecting">再接続中…</string>
+
+    <!-- Chat UI -->
+    <string name="conversations_title">会話</string>
+    <string name="new_chat">新規チャット</string>
+    <string name="delete">削除</string>
+    <string name="menu">メニュー</string>
+    <string name="back">戻る</string>
 </resources>

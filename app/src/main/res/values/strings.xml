@@ -122,6 +122,19 @@
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">Custom…</string>
     
+    <!-- Connection Mode -->
+    <string name="connection_mode">Connection Mode</string>
+    <string name="connection_mode_auto">Auto (Recommended)</string>
+    <string name="connection_mode_websocket">WebSocket</string>
+    <string name="connection_mode_http">HTTP</string>
+    <string name="gateway_port">Gateway Port</string>
+    <string name="streaming_response">Streaming response…</string>
+    <string name="stop_generation">Stop</string>
+    <string name="connection_status_connected">Connected (WebSocket)</string>
+    <string name="connection_status_http">HTTP Mode</string>
+    <string name="connection_status_disconnected">Disconnected</string>
+    <string name="connection_status_reconnecting">Reconnecting…</string>
+
     <!-- Chat UI -->
     <string name="conversations_title">Conversations</string>
     <string name="new_chat">New Chat</string>

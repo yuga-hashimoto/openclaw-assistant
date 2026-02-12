@@ -38,11 +38,14 @@ import androidx.compose.ui.res.stringResource
 import com.openclaw.assistant.R
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.api.OpenClawClient
+import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.TTSManager
 import com.openclaw.assistant.speech.SpeechResult
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlin.coroutines.resume
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -65,6 +68,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     private val settings = SettingsRepository.getInstance(context)
     private val apiClient = OpenClawClient()
+    private val gatewayClient = GatewayClient.getInstance()
     private lateinit var speechManager: SpeechRecognizerManager
     private lateinit var ttsManager: TTSManager
     
@@ -179,12 +183,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         // 設定チェック
         if (!settings.isConfigured()) {
             currentState.value = AssistantState.ERROR
-        if (!settings.isConfigured()) {
-            currentState.value = AssistantState.ERROR
             errorMessage.value = context.getString(R.string.error_config_required)
             displayText.value = context.getString(R.string.config_required)
             return
-        }
         }
 
         // 音声認識開始
@@ -333,46 +334,101 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 chatRepository.addMessage(sessionId, message, isUser = true)
             }
 
-            val result = apiClient.sendMessage(
-                webhookUrl = settings.webhookUrl,
-                message = message,
-                sessionId = settings.sessionId, // This uses the generated ID which we synced
-                authToken = settings.authToken.takeIf { it.isNotBlank() }
-            )
+            if (gatewayClient.isConnected() && settings.connectionMode != "http") {
+                sendViaWebSocket(message)
+            } else {
+                sendViaHttp(message)
+            }
+        }
+    }
 
-            result.fold(
-                onSuccess = { response ->
-                    val responseText = response.getResponseText()
-                    if (responseText != null) {
-                        displayText.value = responseText
-                        
-                        // Save AI Message
-                        currentSessionId?.let { sessionId ->
-                            chatRepository.addMessage(sessionId, responseText, isUser = false)
-                        }
-                        
-                        if (settings.ttsEnabled) {
-                            speakResponse(responseText)
-                        } else if (settings.continuousMode) {
-                            scope.launch {
-                                delay(500)
-                                startListening()
+    private suspend fun sendViaWebSocket(message: String) {
+        try {
+            val sessionKey = gatewayClient.mainSessionKey ?: "main"
+            gatewayClient.sendChat(sessionKey, message)
+
+            // Observe streaming text until chat event signals completion
+            val responseJob = scope.launch {
+                gatewayClient.agentEvents.collect { event ->
+                    if (event.stream == "assistant" && !event.data?.text.isNullOrEmpty()) {
+                        displayText.value = event.data?.text ?: ""
+                    }
+                }
+            }
+
+            // Wait for chat final/error/aborted event
+            val finalText = suspendCancellableCoroutine<String?> { continuation ->
+                val job = scope.launch {
+                    gatewayClient.chatEvents.collect { event ->
+                        when (event.state) {
+                            "final" -> {
+                                if (continuation.isActive) continuation.resume(displayText.value)
+                            }
+                            "error" -> {
+                                if (continuation.isActive) continuation.resume(null)
+                                currentState.value = AssistantState.ERROR
+                                errorMessage.value = event.errorMessage ?: "Chat failed"
+                            }
+                            "aborted" -> {
+                                if (continuation.isActive) continuation.resume(displayText.value)
                             }
                         }
-                    } else if (response.error != null) {
-                        currentState.value = AssistantState.ERROR
-                        errorMessage.value = response.error
-                    } else {
-                        currentState.value = AssistantState.ERROR
-                        errorMessage.value = context.getString(R.string.error_no_response)
                     }
-                },
-                onFailure = { error ->
-                    Log.e(TAG, "API error", error)
-                    currentState.value = AssistantState.ERROR
-                    errorMessage.value = error.message ?: context.getString(R.string.error_network)
                 }
-            )
+                continuation.invokeOnCancellation { job.cancel() }
+            }
+            responseJob.cancel()
+
+            if (!finalText.isNullOrBlank()) {
+                handleResponseReceived(finalText)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
+            sendViaHttp(message)
+        }
+    }
+
+    private suspend fun sendViaHttp(message: String) {
+        val result = apiClient.sendMessage(
+            webhookUrl = settings.webhookUrl,
+            message = message,
+            sessionId = settings.sessionId,
+            authToken = settings.authToken.takeIf { it.isNotBlank() }
+        )
+
+        result.fold(
+            onSuccess = { response ->
+                val responseText = response.getResponseText()
+                if (responseText != null) {
+                    displayText.value = responseText
+                    handleResponseReceived(responseText)
+                } else if (response.error != null) {
+                    currentState.value = AssistantState.ERROR
+                    errorMessage.value = response.error
+                } else {
+                    currentState.value = AssistantState.ERROR
+                    errorMessage.value = context.getString(R.string.error_no_response)
+                }
+            },
+            onFailure = { error ->
+                Log.e(TAG, "API error", error)
+                currentState.value = AssistantState.ERROR
+                errorMessage.value = error.message ?: context.getString(R.string.error_network)
+            }
+        )
+    }
+
+    private suspend fun handleResponseReceived(responseText: String) {
+        // Save AI Message
+        currentSessionId?.let { sessionId ->
+            chatRepository.addMessage(sessionId, responseText, isUser = false)
+        }
+
+        if (settings.ttsEnabled) {
+            speakResponse(responseText)
+        } else if (settings.continuousMode) {
+            delay(500)
+            startListening()
         }
     }
 

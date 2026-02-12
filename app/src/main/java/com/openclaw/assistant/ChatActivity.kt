@@ -46,6 +46,7 @@ import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.ui.chat.ChatMessage
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
+import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
@@ -91,7 +92,7 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     allSessions = allSessions,
                     currentSessionId = currentSessionId,
                     onSendMessage = { viewModel.sendMessage(it) },
-                    onStartListening = { 
+                    onStartListening = {
                         Log.e(TAG, "onStartListening called, permission=${checkPermission()}")
                         if (checkPermission()) {
                             viewModel.startListening()
@@ -101,6 +102,7 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     },
                     onStopListening = { viewModel.stopListening() },
                     onStopSpeaking = { viewModel.stopSpeaking() },
+                    onStopGeneration = { viewModel.stopGeneration() },
                     onBack = { finish() },
                     onSelectSession = { viewModel.selectSession(it) },
                     onCreateSession = { viewModel.createNewSession() },
@@ -175,6 +177,7 @@ fun ChatScreen(
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onStopSpeaking: () -> Unit,
+    onStopGeneration: () -> Unit,
     onBack: () -> Unit,
     onSelectSession: (String) -> Unit,
     onCreateSession: () -> Unit,
@@ -207,8 +210,8 @@ fun ChatScreen(
         items
     }
 
-    // Scroll to bottom when new messages arrive
-    LaunchedEffect(groupedItems.size) { // Monitor grouped items size instead
+    // Scroll to bottom when new messages arrive or streaming updates
+    LaunchedEffect(groupedItems.size, uiState.streamingContent) {
         if (groupedItems.isNotEmpty()) {
             listState.animateScrollToItem(groupedItems.size - 1)
         }
@@ -282,11 +285,15 @@ fun ChatScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { 
-                        Text(
-                            stringResource(R.string.app_name), 
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold 
-                        ) 
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.app_name),
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            ConnectionIndicator(uiState.connectionState)
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
@@ -359,6 +366,18 @@ fun ChatScreen(
                 if (uiState.isThinking) {
                     item {
                         ThinkingIndicator()
+                    }
+                }
+                if (uiState.isStreaming && !uiState.streamingContent.isNullOrBlank()) {
+                    item {
+                        StreamingBubble(
+                            text = uiState.streamingContent,
+                            onStop = onStopGeneration
+                        )
+                    }
+                } else if (uiState.isStreaming) {
+                    item {
+                        StreamingIndicator(onStop = onStopGeneration)
                     }
                 }
                 if (uiState.isSpeaking) {
@@ -493,6 +512,109 @@ fun SpeakingIndicator(onStop: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = onStop, modifier = Modifier.size(24.dp)) {
                 Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop_description), tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        }
+    }
+}
+
+@Composable
+fun ConnectionIndicator(state: ConnectionState) {
+    val (color, label) = when (state) {
+        ConnectionState.CONNECTED -> Color(0xFF4CAF50) to R.string.connection_status_connected
+        ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> Color(0xFFFFC107) to R.string.connection_status_reconnecting
+        ConnectionState.DISCONNECTED -> Color(0xFF9E9E9E) to R.string.connection_status_http
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = if (state == ConnectionState.CONNECTED) "WS" else if (state == ConnectionState.DISCONNECTED) "HTTP" else "...",
+            fontSize = 10.sp,
+            color = color
+        )
+    }
+}
+
+@Composable
+fun StreamingBubble(text: String, onStop: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column(horizontalAlignment = Alignment.Start) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp),
+                modifier = Modifier.widthIn(max = 300.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = text,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            TextButton(
+                onClick = onStop,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    Icons.Default.Stop,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    stringResource(R.string.stop_generation),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StreamingIndicator(onStop: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.streaming_response),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = onStop, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    Icons.Default.Stop,
+                    contentDescription = stringResource(R.string.stop_generation),
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
