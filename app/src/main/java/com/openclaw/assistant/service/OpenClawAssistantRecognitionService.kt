@@ -12,16 +12,16 @@ class OpenClawAssistantRecognitionService : RecognitionService() {
         private const val TAG = "OpenClawAssistantRec"
     }
 
-    override fun onStartListening(intent: Intent?, listener: Callback?) {
+    override fun onStartListening(intent: Intent?, listener: RecognitionService.Callback?) {
         Log.d(TAG, "onStartListening")
         // No-op: Actual recognition is handled in OpenClawSession
     }
 
-    override fun onCancel(listener: Callback?) {
+    override fun onCancel(listener: RecognitionService.Callback?) {
         Log.d(TAG, "onCancel")
     }
 
-    override fun onStopListening(listener: Callback?) {
+    override fun onStopListening(listener: RecognitionService.Callback?) {
         Log.d(TAG, "onStopListening")
     }
 }
