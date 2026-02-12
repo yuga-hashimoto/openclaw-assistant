@@ -63,26 +63,31 @@ Download APK from [Releases](https://github.com/yuga-hashimoto/OpenClawAssistant
 
 ### 🔧 OpenClaw Configuration
 
-Add a webhook for this app in your `openclaw.json`:
+This app uses OpenClaw's Chat Completions API. Ensure it's enabled in your `moltbot.json`:
 
 ```json
 {
-  "hooks": {
-    "voice": {
-      "path": "/hooks/voice",
-      "auth": {
-        "bearer": "your-secret-token"
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
       }
     }
   }
 }
 ```
 
-Then expose it externally using ngrok or similar:
+Then expose the gateway externally using ngrok or similar:
 
 ```bash
-ngrok http 18080
+ngrok http 18789
 ```
+
+In the app settings:
+- **Server URL**: `https://<ngrok-subdomain>.ngrok-free.dev/v1/chat/completions`
+- **Auth Token**: Your gateway auth token (from `gateway.auth.token` in `moltbot.json`)
 
 ### 🛠 Tech Stack
 
@@ -115,55 +120,63 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## 🤖 For AI Agents
 
-This section is for AI agents (like OpenClaw) that need to set up webhook integration.
+This section is for AI agents (like OpenClaw) that need to set up integration.
 
-### Webhook Setup Instructions
+### Setup Instructions
 
 To configure OpenClaw for this Android app:
 
-1. **Add webhook to `openclaw.json`:**
+1. **Ensure Chat Completions API is enabled in `moltbot.json`:**
 ```json
 {
-  "hooks": {
-    "voice": {
-      "path": "/hooks/voice",
-      "auth": {
-        "bearer": "<generate-secure-token>"
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
       }
     }
   }
 }
 ```
 
-2. **Expose externally with ngrok:**
+2. **Expose gateway externally with ngrok:**
 ```bash
-ngrok http 18080
+ngrok http 18789
 ```
 
 3. **Provide to user:**
-   - Webhook URL: `https://<ngrok-subdomain>.ngrok.io/hooks/voice`
-   - Auth Token: The bearer token you set (optional)
+   - Server URL: `https://<ngrok-subdomain>.ngrok-free.dev/v1/chat/completions`
+   - Auth Token: The gateway auth token (`gateway.auth.token` in `moltbot.json`)
 
 ### Request/Response Format
 
 **Request (App → OpenClaw):**
 ```json
-POST /hooks/voice
+POST /v1/chat/completions
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorization: Bearer <gateway-auth-token>
 
 {
-  "message": "User's spoken text",
-  "session_id": "uuid-xxx-xxx"
+  "model": "openclaw/voice-agent",
+  "user": "session-uuid",
+  "messages": [{"role": "user", "content": "User's spoken text"}]
 }
 ```
 
 **Response (OpenClaw → App):**
 ```json
-{"response": "AI response text"}
+{
+  "id": "chatcmpl_...",
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "AI response text"},
+      "finish_reason": "stop"
+    }
+  ]
+}
 ```
-
-Also accepts: `{"text": "..."}` or `{"message": "..."}`
 
 ---
 
@@ -222,26 +235,31 @@ Also accepts: `{"text": "..."}` or `{"message": "..."}`
 
 ### 🔧 OpenClaw側の設定
 
-`openclaw.json` にWebhookを追加：
+OpenClawのChat Completions APIを使用します。`moltbot.json` で有効化を確認：
 
 ```json
 {
-  "hooks": {
-    "voice": {
-      "path": "/hooks/voice",
-      "auth": {
-        "bearer": "your-secret-token"
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
       }
     }
   }
 }
 ```
 
-ngrokなどで外部公開：
+ngrokなどでゲートウェイを外部公開：
 
 ```bash
-ngrok http 18080
+ngrok http 18789
 ```
+
+アプリの設定画面で：
+- **Server URL**: `https://<ngrokサブドメイン>.ngrok-free.dev/v1/chat/completions`
+- **Auth Token**: ゲートウェイ認証トークン（`moltbot.json` の `gateway.auth.token`）
 
 ### 🛠 技術スタック
 
@@ -274,53 +292,61 @@ MIT License - 詳細は [LICENSE](LICENSE) を参照。
 
 ## 🤖 AI向け情報
 
-このセクションはOpenClawなどのAIエージェントがWebhook連携を設定するための情報です。
+このセクションはOpenClawなどのAIエージェントが連携を設定するための情報です。
 
-### Webhook設定手順
+### 設定手順
 
-1. **`openclaw.json` にWebhookを追加:**
+1. **`moltbot.json` でChat Completions APIを有効化:**
 ```json
 {
-  "hooks": {
-    "voice": {
-      "path": "/hooks/voice",
-      "auth": {
-        "bearer": "<安全なトークンを生成>"
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
       }
     }
   }
 }
 ```
 
-2. **ngrokで外部公開:**
+2. **ngrokでゲートウェイを外部公開:**
 ```bash
-ngrok http 18080
+ngrok http 18789
 ```
 
 3. **ユーザーに伝える情報:**
-   - Webhook URL: `https://<ngrok-subdomain>.ngrok.io/hooks/voice`
-   - Auth Token: 設定したbearerトークン（任意）
+   - Server URL: `https://<ngrokサブドメイン>.ngrok-free.dev/v1/chat/completions`
+   - Auth Token: ゲートウェイ認証トークン（`moltbot.json` の `gateway.auth.token`）
 
 ### リクエスト/レスポンス形式
 
 **リクエスト（アプリ → OpenClaw）:**
 ```json
-POST /hooks/voice
+POST /v1/chat/completions
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorization: Bearer <gateway-auth-token>
 
 {
-  "message": "ユーザーの発話テキスト",
-  "session_id": "uuid-xxx-xxx"
+  "model": "openclaw/voice-agent",
+  "user": "session-uuid",
+  "messages": [{"role": "user", "content": "ユーザーの発話テキスト"}]
 }
 ```
 
 **レスポンス（OpenClaw → アプリ）:**
 ```json
-{"response": "AIの応答テキスト"}
+{
+  "id": "chatcmpl_...",
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "AIの応答テキスト"},
+      "finish_reason": "stop"
+    }
+  ]
+}
 ```
-
-`{"text": "..."}` や `{"message": "..."}` も対応。
 
 ---
 

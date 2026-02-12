@@ -34,7 +34,7 @@
     <string name="notification_text">Say \"Open Claw\" to activate</string>
     <string name="settings_title">Settings</string>
     <string name="webhook_url_label">Webhook URL</string>
-    <string name="webhook_url_hint">https://your-server/hooks/voice</string>
+    <string name="webhook_url_hint">https://your-server/v1/chat/completions</string>
     <string name="auth_token_label">Auth Token (optional)</string>
     <string name="auth_token_hint">Optional</string>
     <string name="session_id_label">Session ID</string>

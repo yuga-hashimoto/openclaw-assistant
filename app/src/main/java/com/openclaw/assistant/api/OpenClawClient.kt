@@ -1,6 +1,7 @@
 package com.openclaw.assistant.api
 
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,10 +35,17 @@ class OpenClawClient {
         authToken: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         try {
-            // Simple request body for /hooks/voice
+            // OpenAI Chat Completions format for /v1/chat/completions
             val requestBody = JsonObject().apply {
-                addProperty("message", message)
-                addProperty("session_id", sessionId)
+                addProperty("model", "openclaw/voice-agent")
+                addProperty("user", sessionId)
+                val messagesArray = JsonArray()
+                val userMessage = JsonObject().apply {
+                    addProperty("role", "user")
+                    addProperty("content", message)
+                }
+                messagesArray.add(userMessage)
+                add("messages", messagesArray)
             }
 
             val jsonBody = gson.toJson(requestBody)
@@ -112,10 +120,17 @@ class OpenClawClient {
                 // Fallthrough to POST on error (some servers reject HEAD)
             }
 
-            // Fallback: POST with dummy data
+            // Fallback: POST with minimal OpenAI format
             val requestBody = JsonObject().apply {
-                addProperty("message", "ping")
-                addProperty("session_id", "test-connection")
+                addProperty("model", "openclaw/voice-agent")
+                addProperty("user", "connection-test")
+                val messagesArray = JsonArray()
+                val testMessage = JsonObject().apply {
+                    addProperty("role", "user")
+                    addProperty("content", "ping")
+                }
+                messagesArray.add(testMessage)
+                add("messages", messagesArray)
             }
             
             val jsonBody = gson.toJson(requestBody)
@@ -151,19 +166,26 @@ class OpenClawClient {
     private fun extractResponseText(json: String): String? {
         return try {
             val obj = gson.fromJson(json, JsonObject::class.java)
-            
-            // OpenClaw /hooks/voice format: { ok, response, session_id }
-            obj.get("response")?.asString
-            // OpenAI format: choices[0].message.content
-            ?: obj.getAsJsonArray("choices")?.let { choices ->
+
+            // Check for API error response
+            obj.getAsJsonObject("error")?.let { error ->
+                val errorMsg = error.get("message")?.asString ?: "Unknown error"
+                throw IOException("API Error: $errorMsg")
+            }
+
+            // OpenAI format (primary): choices[0].message.content
+            obj.getAsJsonArray("choices")?.let { choices ->
                 choices.firstOrNull()?.asJsonObject
                     ?.getAsJsonObject("message")
                     ?.get("content")?.asString
             }
-            // Other simple formats
+            // Fallback formats
+            ?: obj.get("response")?.asString
             ?: obj.get("text")?.asString
             ?: obj.get("message")?.asString
             ?: obj.get("content")?.asString
+        } catch (e: IOException) {
+            throw e
         } catch (e: Exception) {
             null
         }
