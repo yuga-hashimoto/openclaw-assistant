@@ -89,6 +89,10 @@ In the app settings:
 - **Server URL**: `https://<ngrok-subdomain>.ngrok-free.dev/v1/chat/completions`
 - **Auth Token**: Your gateway auth token (from `gateway.auth.token` in `moltbot.json`)
 
+#### Optional: Chat Completions Proxy
+
+Newer OpenClaw versions may only return a status from webhooks instead of a full chat response. If you need full responses for the app (or for Apple Shortcuts), run the included proxy on your OpenClaw host so it translates requests and returns the expected format. See [android_proxy.js](android_proxy.js) (run with Node.js; recommended: manage with PM2, e.g. `pm2 start android_proxy.js --name "claw-proxy"`). Configure the app’s Webhook URL to point at the proxy (e.g. `http://<openclaw-host>:18790`) and set the token via `OPENCLAW_TOKEN` or in the script.
+
 ### 🛠 Tech Stack
 
 - **UI**: Kotlin + Jetpack Compose + Material 3
