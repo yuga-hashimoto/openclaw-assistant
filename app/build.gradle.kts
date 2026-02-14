@@ -29,7 +29,8 @@ fun executeCommand(vararg command: String): String {
 
 fun getTagName(): String {
     val tag = executeCommand("git", "describe", "--tags", "--always", "--dirty")
-    return tag.ifBlank { "v1.1.1-debug" }
+    // Remove "v" prefix if present
+    return tag.removePrefix("v").ifBlank { "1.1.1-debug" }
 }
 
 fun getTagVersionCode(): Int {
