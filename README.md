@@ -1,4 +1,5 @@
-# OpenClaw Assistant
+# OpenClaw Assistant 🦞
+![CI](https://github.com/yuga-hashimoto/OpenClawAssistant/actions/workflows/ci.yml/badge.svg)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R5R51S97C4)
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- 未翻訳のリソースを警告レベルに下げる -->
+    <issue id="MissingTranslation" severity="warning" />
+    <!-- 未使用のリソースを警告レベルに下げる -->
+    <issue id="UnusedResources" severity="warning" />
+    <!-- 依存関係のバージョン警告を警告レベルに下げる -->
+    <issue id="GradleDependency" severity="warning" />
+    <!-- 古いSDKバージョンチェックを警告レベルに下げる -->
+    <issue id="ObsoleteSdkInt" severity="warning" />
+</lint>
