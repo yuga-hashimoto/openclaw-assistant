@@ -3,6 +3,7 @@ package com.openclaw.assistant
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -55,13 +56,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var settings: SettingsRepository
     private var tts: TextToSpeech? = null
     private var voiceDiagnostic by mutableStateOf<VoiceDiagnostic?>(null)
+    private var pendingHotwordStart = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val allGranted = permissions.values.all { it }
-        if (!allGranted) {
-            Toast.makeText(this, getString(R.string.permissions_required), Toast.LENGTH_SHORT).show()
+        val recordAudioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+        if (pendingHotwordStart) {
+            pendingHotwordStart = false
+            if (recordAudioGranted) {
+                settings.hotwordEnabled = true
+                HotwordService.start(this)
+                Toast.makeText(this, getString(R.string.hotword_started), Toast.LENGTH_SHORT).show()
+            } else {
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+                    showPermissionSettingsDialog()
+                } else {
+                    Toast.makeText(this, getString(R.string.mic_permission_required), Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            val allGranted = permissions.values.all { it }
+            if (!allGranted) {
+                Toast.makeText(this, getString(R.string.permissions_required), Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -137,19 +155,40 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun toggleHotwordService(enabled: Boolean) {
         if (enabled) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
+                == PackageManager.PERMISSION_GRANTED) {
+                settings.hotwordEnabled = true
+                HotwordService.start(this)
+                Toast.makeText(this, getString(R.string.hotword_started), Toast.LENGTH_SHORT).show()
+            } else if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+                pendingHotwordStart = true
                 Toast.makeText(this, getString(R.string.mic_permission_required), Toast.LENGTH_SHORT).show()
                 permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
-                return
+            } else {
+                // First-time request or permanently denied: launch and decide in callback
+                pendingHotwordStart = true
+                permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
             }
-            settings.hotwordEnabled = true
-            HotwordService.start(this)
-            Toast.makeText(this, getString(R.string.hotword_started), Toast.LENGTH_SHORT).show()
         } else {
             settings.hotwordEnabled = false
             HotwordService.stop(this)
             Toast.makeText(this, getString(R.string.hotword_stopped), Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showPermissionSettingsDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.mic_permission_required))
+            .setMessage(getString(R.string.mic_permission_denied_permanently))
+            .setPositiveButton(getString(R.string.open_settings)) { _, _ -> openAppSettings() }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        startActivity(intent)
     }
 
     fun isAssistantActive(): Boolean {

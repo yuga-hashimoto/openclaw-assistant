@@ -1,9 +1,12 @@
 package com.openclaw.assistant.speech
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
+import android.speech.RecognitionService
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import kotlinx.coroutines.channels.awaitClose
@@ -44,9 +47,13 @@ class SpeechRecognizerManager(private val context: Context) {
             // Ensure creation on Main thread
             withContext(Dispatchers.Main) {
                 if (recognizer == null && SpeechRecognizer.isRecognitionAvailable(context)) {
-                    // Use application context to avoid activity/service lifecycle leaks
                     val appContext = context.applicationContext
-                    recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
+                    val serviceComponent = findRecognitionService(appContext)
+                    recognizer = if (serviceComponent != null) {
+                        SpeechRecognizer.createSpeechRecognizer(appContext, serviceComponent)
+                    } else {
+                        SpeechRecognizer.createSpeechRecognizer(appContext)
+                    }
                 }
             }
         }
@@ -177,13 +184,45 @@ class SpeechRecognizerManager(private val context: Context) {
     /**
      * Completely destroy the recognizer resources
      */
-    fun destroy() { 
+    fun destroy() {
         try {
             recognizer?.destroy()
         } catch (e: Exception) {
             // Ignore
         }
         recognizer = null
+    }
+
+    /**
+     * Find a real speech recognition service, skipping our own stub service.
+     * This app registers a no-op RecognitionService (required for VoiceInteractionService),
+     * which some devices may select as the default, breaking SpeechRecognizer.
+     */
+    private fun findRecognitionService(context: Context): ComponentName? {
+        val pm = context.packageManager
+        val services = pm.queryIntentServices(
+            Intent(RecognitionService.SERVICE_INTERFACE),
+            PackageManager.GET_META_DATA
+        )
+
+        val ownPackage = context.packageName
+
+        // Prefer Google's service
+        val google = services.firstOrNull {
+            it.serviceInfo.packageName == "com.google.android.googlequicksearchbox"
+        }
+        if (google != null) {
+            return ComponentName(google.serviceInfo.packageName, google.serviceInfo.name)
+        }
+
+        // Use any other service that is NOT our own stub
+        val other = services.firstOrNull { it.serviceInfo.packageName != ownPackage }
+        if (other != null) {
+            return ComponentName(other.serviceInfo.packageName, other.serviceInfo.name)
+        }
+
+        // No external service found; fall back to default
+        return null
     }
 }
 

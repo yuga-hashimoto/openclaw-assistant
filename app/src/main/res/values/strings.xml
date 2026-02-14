@@ -135,6 +135,11 @@
     <string name="connection_status_disconnected">Disconnected</string>
     <string name="connection_status_reconnecting">Reconnecting…</string>
 
+    <!-- Permission handling -->
+    <string name="mic_permission_denied_permanently">Microphone permission has been permanently denied. Please enable it in app settings to use wake word detection.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="cancel">Cancel</string>
+
     <!-- Chat UI -->
     <string name="conversations_title">Conversations</string>
     <string name="new_chat">New Chat</string>

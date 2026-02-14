@@ -111,6 +111,11 @@
     <string name="connection_status_disconnected">未接続</string>
     <string name="connection_status_reconnecting">再接続中…</string>
 
+    <!-- Permission handling -->
+    <string name="mic_permission_denied_permanently">マイクの権限が永久に拒否されています。ウェイクワード検知を使用するには、アプリの設定から権限を有効にしてください。</string>
+    <string name="open_settings">設定を開く</string>
+    <string name="cancel">キャンセル</string>
+
     <!-- Chat UI -->
     <string name="conversations_title">会話</string>
     <string name="new_chat">新規チャット</string>
