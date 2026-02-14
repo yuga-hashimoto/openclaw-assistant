@@ -146,4 +146,16 @@
     <string name="delete">Delete</string>
     <string name="menu">Menu</string>
     <string name="back">Back</string>
+
+    <!-- File Attachment -->
+    <string name="attach_file">Attach</string>
+    <string name="camera">Camera</string>
+    <string name="gallery">Gallery</string>
+    <string name="choose_file">Choose File</string>
+    <string name="remove_attachment">Remove</string>
+    <string name="attached_image">Attached image</string>
+    <string name="file_too_large">File is too large (max 4MB)</string>
+    <string name="camera_permission_required">Camera permission is required to take photos</string>
+    <string name="camera_not_available">Camera is not available on this device</string>
+    <string name="file_read_error">Could not read the selected file</string>
 </resources>

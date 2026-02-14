@@ -20,6 +20,12 @@
     <!-- 起動時サービス開始 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- カメラ撮影 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- 他のTTSエンジンを検出するために必要 (Android 11+) -->
     <queries>
         <intent>
@@ -97,6 +103,17 @@
             android:name=".service.HotwordService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <!-- FileProvider（カメラ撮影用） -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Boot Receiver -->
         <receiver

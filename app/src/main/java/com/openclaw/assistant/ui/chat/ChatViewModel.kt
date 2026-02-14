@@ -1,6 +1,7 @@
 package com.openclaw.assistant.ui.chat
 
 import android.app.Application
+import android.net.Uri
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -13,11 +14,15 @@ import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.SpeechResult
+import com.openclaw.assistant.util.AttachmentData
+import com.openclaw.assistant.util.ImageCompressor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.util.UUID
@@ -29,7 +34,10 @@ data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
     val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val attachmentUri: String? = null,
+    val attachmentMimeType: String? = null,
+    val attachmentFileName: String? = null
 )
 
 data class ChatUiState(
@@ -39,9 +47,12 @@ data class ChatUiState(
     val isStreaming: Boolean = false,
     val isSpeaking: Boolean = false,
     val error: String? = null,
-    val partialText: String = "", // For real-time speech transcription
-    val streamingContent: String? = null, // Real-time AI response text
-    val connectionState: ConnectionState = ConnectionState.DISCONNECTED
+    val partialText: String = "",
+    val streamingContent: String? = null,
+    val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
+    val pendingAttachmentUri: String? = null,
+    val pendingAttachmentMimeType: String? = null,
+    val pendingAttachmentFileName: String? = null
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -83,6 +94,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Pending attachment for next send
+    private var pendingAttachment: AttachmentData? = null
+
     // Messages Flow - mapped from current Session ID
     private val _messagesFlow = _currentSessionId.flatMapLatest { sessionId ->
          if (sessionId != null) {
@@ -92,7 +106,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                          id = entity.id,
                          text = entity.content,
                          isUser = entity.isUser,
-                         timestamp = entity.timestamp
+                         timestamp = entity.timestamp,
+                         attachmentUri = entity.attachmentUri,
+                         attachmentMimeType = entity.attachmentMimeType,
+                         attachmentFileName = entity.attachmentFileName
                      )
                  }
              }
@@ -231,23 +248,78 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         isTTSReady = true
     }
 
+    fun setPendingAttachment(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val data = withContext(Dispatchers.IO) {
+                ImageCompressor.processAttachment(context, uri)
+            }
+            if (data != null) {
+                pendingAttachment = data
+                _uiState.update {
+                    it.copy(
+                        pendingAttachmentUri = uri.toString(),
+                        pendingAttachmentMimeType = data.mimeType,
+                        pendingAttachmentFileName = data.fileName
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(error = context.getString(com.openclaw.assistant.R.string.file_too_large)) }
+            }
+        }
+    }
+
+    fun clearPendingAttachment() {
+        pendingAttachment = null
+        _uiState.update {
+            it.copy(
+                pendingAttachmentUri = null,
+                pendingAttachmentMimeType = null,
+                pendingAttachmentFileName = null
+            )
+        }
+    }
+
     fun sendMessage(text: String) {
-        if (text.isBlank()) return
+        val attachment = pendingAttachment
+        if (text.isBlank() && attachment == null) return
 
         // Ensure we have a session
         val sessionId = _currentSessionId.value ?: return
 
-        _uiState.update { it.copy(isThinking = true, streamingContent = null, isStreaming = false) }
+        // Capture URI before clearing
+        val attachmentUriStr = _uiState.value.pendingAttachmentUri
+
+        // Consume pending attachment
+        pendingAttachment = null
+        _uiState.update {
+            it.copy(
+                isThinking = true,
+                streamingContent = null,
+                isStreaming = false,
+                pendingAttachmentUri = null,
+                pendingAttachmentMimeType = null,
+                pendingAttachmentFileName = null
+            )
+        }
 
         viewModelScope.launch {
             try {
-                // Save User Message
-                chatRepository.addMessage(sessionId, text, isUser = true)
+                // Save User Message with attachment info
+                chatRepository.addMessage(
+                    sessionId = sessionId,
+                    text = text,
+                    isUser = true,
+                    attachmentUri = attachmentUriStr,
+                    attachmentMimeType = attachment?.mimeType,
+                    attachmentFileName = attachment?.fileName,
+                    attachmentBase64 = attachment?.base64
+                )
 
                 if (gatewayClient.isConnected() && settings.connectionMode != "http") {
-                    sendViaWebSocket(sessionId, text)
+                    sendViaWebSocket(sessionId, text, attachment)
                 } else {
-                    sendViaHttp(sessionId, text)
+                    sendViaHttp(sessionId, text, attachment)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isThinking = false, isStreaming = false, error = e.message) }
@@ -255,24 +327,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun sendViaWebSocket(sessionId: String, text: String) {
+    private suspend fun sendViaWebSocket(sessionId: String, text: String, attachment: AttachmentData? = null) {
         try {
             val sessionKey = gatewayClient.mainSessionKey ?: "main"
-            currentRunId = gatewayClient.sendChat(sessionKey, text)
+            currentRunId = gatewayClient.sendChat(sessionKey, text, attachment)
             _uiState.update { it.copy(isThinking = false, isStreaming = true) }
-            // Response will arrive via chatEvents + agentEvents observers
         } catch (e: Exception) {
             Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
-            sendViaHttp(sessionId, text)
+            sendViaHttp(sessionId, text, attachment)
         }
     }
 
-    private suspend fun sendViaHttp(sessionId: String, text: String) {
+    private suspend fun sendViaHttp(sessionId: String, text: String, attachment: AttachmentData? = null) {
         val result = apiClient.sendMessage(
             webhookUrl = settings.webhookUrl,
             message = text,
             sessionId = sessionId,
-            authToken = settings.authToken.takeIf { it.isNotBlank() }
+            authToken = settings.authToken.takeIf { it.isNotBlank() },
+            attachment = attachment
         )
 
         result.fold(

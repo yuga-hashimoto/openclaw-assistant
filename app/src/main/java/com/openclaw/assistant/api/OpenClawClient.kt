@@ -9,6 +9,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.openclaw.assistant.util.AttachmentData
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -32,7 +33,8 @@ class OpenClawClient {
         webhookUrl: String,
         message: String,
         sessionId: String,
-        authToken: String? = null
+        authToken: String? = null,
+        attachment: AttachmentData? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         try {
             // OpenAI Chat Completions format for /v1/chat/completions
@@ -42,7 +44,30 @@ class OpenClawClient {
                 val messagesArray = JsonArray()
                 val userMessage = JsonObject().apply {
                     addProperty("role", "user")
-                    addProperty("content", message)
+                    if (attachment != null && attachment.mimeType.startsWith("image/")) {
+                        // OpenAI Vision API format: content as array
+                        val contentArray = JsonArray().apply {
+                            if (message.isNotBlank()) {
+                                add(JsonObject().apply {
+                                    addProperty("type", "text")
+                                    addProperty("text", message)
+                                })
+                            }
+                            add(JsonObject().apply {
+                                addProperty("type", "image_url")
+                                add("image_url", JsonObject().apply {
+                                    addProperty("url", "data:${attachment.mimeType};base64,${attachment.base64}")
+                                    addProperty("detail", "auto")
+                                })
+                            })
+                        }
+                        add("content", contentArray)
+                    } else {
+                        val displayText = if (attachment != null) {
+                            "$message\n[Attached file: ${attachment.fileName} (${attachment.mimeType})]"
+                        } else message
+                        addProperty("content", displayText)
+                    }
                 }
                 messagesArray.add(userMessage)
                 add("messages", messagesArray)

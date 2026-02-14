@@ -11,6 +11,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
@@ -26,7 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
@@ -36,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -46,7 +50,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.BasicTextField
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.openclaw.assistant.speech.TTSUtils
+import com.openclaw.assistant.ui.chat.AttachmentBottomSheet
+import com.openclaw.assistant.ui.chat.AttachmentPreview
 import com.openclaw.assistant.ui.chat.ChatMessage
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
@@ -54,6 +62,7 @@ import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
 
 import com.openclaw.assistant.data.SettingsRepository
@@ -66,6 +75,7 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var isRetry = false
     private lateinit var settings: SettingsRepository
+    private var cameraImageUri: Uri? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -75,6 +85,64 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 showPermissionSettingsDialog()
             }
         }
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchCamera()
+        } else {
+            Toast.makeText(this, getString(R.string.camera_permission_required), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            cameraImageUri?.let { viewModel.setPendingAttachment(it) }
+        }
+    }
+
+    private val galleryLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let { viewModel.setPendingAttachment(it) }
+    }
+
+    private val fileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.setPendingAttachment(it) }
+    }
+
+    private fun launchCamera() {
+        val cacheDir = File(cacheDir, "camera")
+        cacheDir.mkdirs()
+        val file = File(cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+        cameraImageUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+        cameraLauncher.launch(cameraImageUri!!)
+    }
+
+    private fun onCameraClick() {
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            Toast.makeText(this, getString(R.string.camera_not_available), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            launchCamera()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun onGalleryClick() {
+        galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+    }
+
+    private fun onFileClick() {
+        fileLauncher.launch(arrayOf("*/*"))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,12 +159,14 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
+        val hasCamera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+
         setContent {
             OpenClawAssistantTheme {
                 val uiState by viewModel.uiState.collectAsState()
                 val allSessions by viewModel.allSessions.collectAsState()
                 val currentSessionId by viewModel.currentSessionId.collectAsState()
-                
+
                 ChatScreen(
                     uiState = uiState,
                     allSessions = allSessions,
@@ -116,7 +186,12 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     onBack = { finish() },
                     onSelectSession = { viewModel.selectSession(it) },
                     onCreateSession = { viewModel.createNewSession() },
-                    onDeleteSession = { viewModel.deleteSession(it) }
+                    onDeleteSession = { viewModel.deleteSession(it) },
+                    onCameraClick = { onCameraClick() },
+                    onGalleryClick = { onGalleryClick() },
+                    onFileClick = { onFileClick() },
+                    onRemoveAttachment = { viewModel.clearPendingAttachment() },
+                    hasCamera = hasCamera
                 )
             }
         }
@@ -209,13 +284,19 @@ fun ChatScreen(
     onBack: () -> Unit,
     onSelectSession: (String) -> Unit,
     onCreateSession: () -> Unit,
-    onDeleteSession: (String) -> Unit
+    onDeleteSession: (String) -> Unit,
+    onCameraClick: () -> Unit = {},
+    onGalleryClick: () -> Unit = {},
+    onFileClick: () -> Unit = {},
+    onRemoveAttachment: () -> Unit = {},
+    hasCamera: Boolean = true
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    var showAttachmentSheet by remember { mutableStateOf(false) }
 
     // Group messages by date
     val groupedItems = remember(uiState.messages) {
@@ -354,7 +435,16 @@ fun ChatScreen(
                              color = MaterialTheme.colorScheme.onSurfaceVariant
                          )
                      }
-                    
+
+                    if (uiState.pendingAttachmentUri != null) {
+                        AttachmentPreview(
+                            uri = uiState.pendingAttachmentUri,
+                            mimeType = uiState.pendingAttachmentMimeType,
+                            fileName = uiState.pendingAttachmentFileName,
+                            onRemove = onRemoveAttachment
+                        )
+                    }
+
                     ChatInputArea(
                         value = inputText,
                         onValueChange = { inputText = it },
@@ -366,7 +456,9 @@ fun ChatScreen(
                         isListening = uiState.isListening,
                         onMicClick = {
                             if (uiState.isListening) onStopListening() else onStartListening()
-                        }
+                        },
+                        onAttachClick = { showAttachmentSheet = true },
+                        hasAttachment = uiState.pendingAttachmentUri != null
                     )
                 }
             }
@@ -415,6 +507,16 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    if (showAttachmentSheet) {
+        AttachmentBottomSheet(
+            onDismiss = { showAttachmentSheet = false },
+            onCameraClick = onCameraClick,
+            onGalleryClick = onGalleryClick,
+            onFileClick = onFileClick,
+            showCamera = hasCamera
+        )
     }
 }
 
@@ -469,12 +571,46 @@ fun MessageBubble(message: ChatMessage) {
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = message.text,
-                        color = contentColor,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
-                    )
+                    if (message.attachmentUri != null) {
+                        if (message.attachmentMimeType?.startsWith("image/") == true) {
+                            AsyncImage(
+                                model = message.attachmentUri,
+                                contentDescription = stringResource(R.string.attached_image),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 200.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            if (message.text.isNotBlank()) Spacer(modifier = Modifier.height(8.dp))
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.InsertDriveFile,
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = message.attachmentFileName ?: "File",
+                                    color = contentColor,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                    if (message.text.isNotBlank()) {
+                        Text(
+                            text = message.text,
+                            color = contentColor,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+                    }
                 }
             }
             Text(
@@ -654,15 +790,25 @@ fun ChatInputArea(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     isListening: Boolean,
-    onMicClick: () -> Unit
+    onMicClick: () -> Unit,
+    onAttachClick: () -> Unit = {},
+    hasAttachment: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        IconButton(onClick = onAttachClick) {
+            Icon(
+                Icons.Default.AttachFile,
+                contentDescription = stringResource(R.string.attach_file),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -679,19 +825,18 @@ fun ChatInputArea(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { if (value.isNotBlank()) onSend() })
+            keyboardActions = KeyboardActions(onSend = { if (value.isNotBlank() || hasAttachment) onSend() })
         )
 
         FloatingActionButton(
             onClick = {
-                android.util.Log.e("ChatInputArea", "FAB clicked, value.isBlank=${value.isBlank()}, isListening=$isListening")
-                if (value.isBlank()) onMicClick() else onSend()
+                if (value.isBlank() && !hasAttachment) onMicClick() else onSend()
             },
-            containerColor = if (value.isBlank() && isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            containerColor = if (value.isBlank() && !hasAttachment && isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             shape = CircleShape
         ) {
             Icon(
-                imageVector = if (value.isBlank()) {
+                imageVector = if (value.isBlank() && !hasAttachment) {
                      if (isListening) Icons.Default.Stop else Icons.Default.Mic
                 } else {
                      Icons.AutoMirrored.Filled.Send

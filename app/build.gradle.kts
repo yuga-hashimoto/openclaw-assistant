@@ -146,6 +146,9 @@ dependencies {
     // Vosk
     implementation("com.alphacephei:vosk-android:0.3.47")
     
+    // Image Loading (Compose)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     

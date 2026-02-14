@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.openclaw.assistant.util.AttachmentData
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,12 +134,22 @@ class GatewayClient {
      * Send a chat message via WebSocket RPC.
      * @return runId from the server
      */
-    suspend fun sendChat(sessionKey: String, message: String): String? {
+    suspend fun sendChat(sessionKey: String, message: String, attachment: AttachmentData? = null): String? {
         val params = JsonObject().apply {
             addProperty("sessionKey", sessionKey)
             addProperty("message", message)
             addProperty("timeoutMs", 30_000)
             addProperty("idempotencyKey", UUID.randomUUID().toString())
+            if (attachment != null) {
+                val attachments = JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("mimeType", attachment.mimeType)
+                        addProperty("fileName", attachment.fileName)
+                        addProperty("dataBase64", attachment.base64)
+                    })
+                }
+                add("attachments", attachments)
+            }
         }
         val result = request("chat.send", params)
         return result.payload?.get("runId")?.asString
