@@ -10,6 +10,10 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.util.Locale
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * 音声認識マネージャー
@@ -35,26 +39,26 @@ class SpeechRecognizerManager(private val context: Context) {
         
         android.util.Log.e("SpeechRecognizerManager", "startListening called, language=$targetLanguage, isAvailable=${isAvailable()}")
 
-        // Clean slate: Ensure any previous instance is safely destroyed
-        recognizer?.let { rec ->
-            try {
-                rec.cancel()
-                rec.destroy()
-            } catch (e: Exception) {
-                // Ignore
+        // Reuse existing recognizer or create new one if needed
+        if (recognizer == null) {
+            // Ensure creation on Main thread
+            withContext(Dispatchers.Main) {
+                if (recognizer == null && SpeechRecognizer.isRecognitionAvailable(context)) {
+                    // Use application context to avoid activity/service lifecycle leaks
+                    val appContext = context.applicationContext
+                    recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
+                }
             }
-            recognizer = null
         }
 
-        // Wait for Android to release internal resources (critical for 2nd+ invocations)
-        kotlinx.coroutines.delay(300)
+        if (recognizer == null) {
+            trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_speech_client)))
+            close()
+            return@callbackFlow
+        }
+        val currentRecognizer = recognizer!!
 
-        // Use application context to avoid activity/service lifecycle leaks
-        val appContext = context.applicationContext
-        val newRecognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
-        recognizer = newRecognizer
-
-        newRecognizer.setRecognitionListener(object : RecognitionListener {
+        currentRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 trySend(SpeechResult.Ready)
             }
@@ -89,8 +93,15 @@ class SpeechRecognizerManager(private val context: Context) {
                 
                 trySend(SpeechResult.Error(errorMessage, error))
                 
-                // If busy, we don't necessarily close immediately if we want to retry manually in session,
-                // but for now, let the session handle the error result.
+                // For critical errors, force recreation of the recognizer
+                // Soft errors (No Match, Timeout) can reuse the instance for speed
+                val isSoftError = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                                  error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+
+                if (!isSoftError) {
+                    destroy()
+                }
+
                 close()
             }
 
@@ -132,9 +143,9 @@ class SpeechRecognizerManager(private val context: Context) {
         }
 
         // Run on Main thread
-        kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+        Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
              try {
-                 newRecognizer.startListening(intent)
+                 currentRecognizer.startListening(intent)
              } catch (e: Exception) {
                  trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_start_failed, e.message)))
                  close()
@@ -142,18 +153,17 @@ class SpeechRecognizerManager(private val context: Context) {
         })
 
         awaitClose {
-            kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+            // Use GlobalScope to ensure cleanup runs even if flow scope is cancelled
+            // But we must be careful not to leak. Dispatchers.Main is fine.
+            @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+            GlobalScope.launch(Dispatchers.Main) {
                 try {
-                    // Cancel before destroy is safer
-                    newRecognizer.cancel()
-                    newRecognizer.destroy()
+                    // Cancel only - do NOT destroy to allow reuse
+                    currentRecognizer.cancel()
                 } catch (e: Exception) {
                     // Ignore
                 }
-                if (recognizer == newRecognizer) {
-                    recognizer = null
-                }
-            })
+            }
         }
     }
 
