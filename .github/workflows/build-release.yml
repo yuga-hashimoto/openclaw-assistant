@@ -69,7 +69,7 @@ jobs:
           files: |
             app/build/outputs/apk/release/OpenClawAssistant-${{ github.ref_name }}.apk
             app/build/outputs/bundle/release/OpenClawAssistant-${{ github.ref_name }}.aab
-          draft: true
+          draft: false
           prerelease: false
 
       - name: Upload Artifacts (Non-tag push)

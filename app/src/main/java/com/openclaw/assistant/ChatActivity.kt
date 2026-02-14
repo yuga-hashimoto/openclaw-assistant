@@ -1,13 +1,17 @@
 package com.openclaw.assistant
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -63,6 +67,16 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var isRetry = false
     private lateinit var settings: SettingsRepository
 
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+                showPermissionSettingsDialog()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = SettingsRepository.getInstance(this)
@@ -72,13 +86,9 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         initializeTTS()
 
         // Request Microphone permission if not granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this, 
-                arrayOf(Manifest.permission.RECORD_AUDIO), 
-                REQUEST_RECORD_AUDIO
-            )
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
         setContent {
@@ -97,7 +107,7 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         if (checkPermission()) {
                             viewModel.startListening()
                         } else {
-                            Toast.makeText(this, getString(R.string.mic_permission_required), Toast.LENGTH_SHORT).show()
+                            requestMicPermissionForListening()
                         }
                     },
                     onStopListening = { viewModel.stopListening() },
@@ -157,8 +167,26 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
     }
 
-    companion object {
-        private const val REQUEST_RECORD_AUDIO = 200
+    private fun requestMicPermissionForListening() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else if (!checkPermission()) {
+            // First-time request or permanently denied
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun showPermissionSettingsDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.mic_permission_required))
+            .setMessage(getString(R.string.mic_permission_denied_permanently))
+            .setPositiveButton(getString(R.string.open_settings)) { _, _ ->
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                })
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
     }
 }
 
