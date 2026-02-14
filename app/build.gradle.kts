@@ -29,7 +29,8 @@ fun executeCommand(vararg command: String): String {
 
 fun getTagName(): String {
     val tag = executeCommand("git", "describe", "--tags", "--always", "--dirty")
-    return tag.ifBlank { "v1.1.1-debug" }
+    // Remove "v" prefix if present
+    return tag.removePrefix("v").ifBlank { "1.1.1-debug" }
 }
 
 fun getTagVersionCode(): Int {
@@ -45,8 +46,8 @@ android {
         applicationId = "com.openclaw.assistant"
         minSdk = 26
         targetSdk = 34
-        versionCode = getTagVersionCode()
-        versionName = getTagName()
+        versionCode = 89  // v1.2.4
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
