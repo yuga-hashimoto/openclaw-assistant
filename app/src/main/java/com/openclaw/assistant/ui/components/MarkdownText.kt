@@ -27,12 +27,36 @@ fun MarkdownText(
             codeBackground = MaterialTheme.colorScheme.surfaceVariant,
         ),
         typography = markdownTypography(
-            h1 = MaterialTheme.typography.headlineMedium.copy(color = color),
-            h2 = MaterialTheme.typography.headlineSmall.copy(color = color),
-            h3 = MaterialTheme.typography.titleLarge.copy(color = color),
-            h4 = MaterialTheme.typography.titleMedium.copy(color = color),
-            h5 = MaterialTheme.typography.titleSmall.copy(color = color),
-            h6 = MaterialTheme.typography.labelLarge.copy(color = color),
+            h1 = MaterialTheme.typography.headlineMedium.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 28.sp
+            ),
+            h2 = MaterialTheme.typography.headlineSmall.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 24.sp
+            ),
+            h3 = MaterialTheme.typography.titleLarge.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 20.sp
+            ),
+            h4 = MaterialTheme.typography.titleMedium.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 18.sp
+            ),
+            h5 = MaterialTheme.typography.titleSmall.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 16.sp
+            ),
+            h6 = MaterialTheme.typography.labelLarge.copy(
+                color = color,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 14.sp
+            ),
             text = TextStyle(
                 color = color,
                 fontSize = 16.sp,
@@ -41,8 +65,24 @@ fun MarkdownText(
             code = TextStyle(
                 color = color,
                 fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             ),
+            quote = TextStyle(
+                color = color.copy(alpha = 0.8f),
+                fontSize = 16.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            ),
+            paragraph = TextStyle(
+                color = color,
+                fontSize = 16.sp,
+                lineHeight = 24.sp
+            ),
+            list = TextStyle(
+                color = color,
+                fontSize = 16.sp,
+                lineHeight = 24.sp
+            )
         ),
     )
 }

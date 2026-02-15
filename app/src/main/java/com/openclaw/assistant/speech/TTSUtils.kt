@@ -72,29 +72,46 @@ object TTSUtils {
      */
     fun stripMarkdownForSpeech(text: String): String {
         var result = text
-        // コードブロック (```...```) を除去
-        result = result.replace(Regex("```[\\s\\S]*?```"), "")
+        // コードブロック (```...```) -> 中身だけ残す
+        // 言語指定がある場合 (```kotlin ...) も考慮して、バッククォートと最初の行(言語名)を削除などの調整が必要だが、
+        // 単純化してバッククォートだけ削除し、中身は読むようにする。または「コードブロック」と読み上げさせるか？
+        // ユーザー要望「記号以外は読み上げる」に従い、中身は残す。
+        result = result.replace(Regex("```.*\\n?"), "") // 開始の ```language を削除
+        result = result.replace(Regex("```"), "")       // 終了の ``` を削除
+
         // ヘッダー (# ## ### 等) を除去
         result = result.replace(Regex("^#{1,6}\\s+", RegexOption.MULTILINE), "")
+        
         // ボールド/イタリック (**text**, *text*, __text__, _text_)
-        result = result.replace(Regex("\\*{1,3}([^*]+)\\*{1,3}"), "$1")
-        result = result.replace(Regex("_{1,3}([^_]+)_{1,3}"), "$1")
+        result = result.replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1")
+        result = result.replace(Regex("\\*([^*]+)\\*"), "$1")
+        result = result.replace(Regex("__([^_]+)__"), "$1")
+        result = result.replace(Regex("_([^_]+)_"), "$1")
+        
         // インラインコード (`code`)
         result = result.replace(Regex("`([^`]+)`"), "$1")
+        
         // リンク [text](url) → text
         result = result.replace(Regex("\\[([^\\]]+)]\\([^)]+\\)"), "$1")
+        
         // 画像 ![alt](url) → alt
         result = result.replace(Regex("!\\[([^\\]]*)]\\([^)]+\\)"), "$1")
-        // 水平線 (---, ***)
+        
+        // 水平線 (---, ***) -> 削除
         result = result.replace(Regex("^[-*_]{3,}$", RegexOption.MULTILINE), "")
+        
         // ブロッククオート (>)
         result = result.replace(Regex("^>\\s?", RegexOption.MULTILINE), "")
+        
         // 箇条書きマーカー (-, *, +)
         result = result.replace(Regex("^\\s*[-*+]\\s+", RegexOption.MULTILINE), "")
-        // 番号付きリストマーカー (1., 2., 等)
-        result = result.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
+        
+        // 番号付きリストマーカー (1., 2., 等) - これは読んでもいいかもしれないが、数字だけ残す
+        // result = result.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
+        
         // 連続改行を整理
         result = result.replace(Regex("\n{3,}"), "\n\n")
+        
         return result.trim()
     }
 }
