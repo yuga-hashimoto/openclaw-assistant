@@ -13,6 +13,7 @@ import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.SpeechResult
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
@@ -54,9 +55,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val apiClient = OpenClawClient()
     private val gatewayClient = GatewayClient.getInstance()
     private val speechManager = SpeechRecognizerManager(application)
+    private val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
 
     // WebSocket streaming state
     private var currentRunId: String? = null
+    private var thinkingSoundJob: Job? = null
+
+    // WakeLock to keep CPU alive during voice interaction with screen off
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
     
     // Session Management
     val allSessions = chatRepository.allSessions.stateIn(
@@ -238,6 +244,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val sessionId = _currentSessionId.value ?: return
 
         _uiState.update { it.copy(isThinking = true, streamingContent = null, isStreaming = false) }
+        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        startThinkingSound()
 
         viewModelScope.launch {
             try {
@@ -250,6 +258,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     sendViaHttp(sessionId, text)
                 }
             } catch (e: Exception) {
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, isStreaming = false, error = e.message) }
             }
         }
@@ -259,6 +268,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val sessionKey = gatewayClient.mainSessionKey ?: "main"
             currentRunId = gatewayClient.sendChat(sessionKey, text)
+            stopThinkingSound()
             _uiState.update { it.copy(isThinking = false, isStreaming = true) }
             // Response will arrive via chatEvents + agentEvents observers
         } catch (e: Exception) {
@@ -280,10 +290,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val responseText = response.getResponseText() ?: "No response"
                 chatRepository.addMessage(sessionId, responseText, isUser = false)
 
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false) }
                 afterResponseReceived(responseText)
             },
             onFailure = { error ->
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, error = error.message) }
             }
         )
@@ -294,6 +306,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val streamedText = _uiState.value.streamingContent
 
         currentRunId = null
+        stopThinkingSound()
         _uiState.update { it.copy(isStreaming = false, streamingContent = null) }
 
         if (!streamedText.isNullOrBlank()) {
@@ -306,6 +319,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun onStreamError(errorMessage: String) {
         currentRunId = null
+        stopThinkingSound()
         _uiState.update { it.copy(isThinking = false, isStreaming = false, streamingContent = null, error = errorMessage) }
     }
 
@@ -352,6 +366,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Pause Hotword Service to prevent microphone conflict
         sendPauseBroadcast()
 
+        // Keep CPU alive during voice interaction (screen off)
+        acquireWakeLock()
+
         lastInputWasVoice = true // Mark as voice input
         listeningJob?.cancel()
 
@@ -370,9 +387,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e(TAG, "Starting speechManager.startListening(), isListening=true")
                     _uiState.update { it.copy(isListening = true, partialText = "") }
 
-                    speechManager.startListening(null).collect { result ->
+                    speechManager.startListening(null, settings.speechSilenceTimeout).collect { result ->
                         Log.e(TAG, "SpeechResult: $result")
                         when (result) {
+                            is SpeechResult.Ready -> {
+                                toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            }
+                            is SpeechResult.Processing -> {
+                                // No sound here - thinking ACK sound will play when AI starts processing
+                            }
                             is SpeechResult.PartialResult -> {
                                 _uiState.update { it.copy(partialText = result.text) }
                             }
@@ -386,12 +409,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 val isTimeout = result.code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || 
                                               result.code == SpeechRecognizer.ERROR_NO_MATCH
                                 
-                                if (isTimeout && settings.continuousMode && elapsed < 5000) {
-                                    Log.d(TAG, "Speech timeout within 5s window ($elapsed ms), retrying loop...")
+                                if (isTimeout && elapsed < settings.speechSilenceTimeout) {
+                                    Log.d(TAG, "Speech timeout within ${settings.speechSilenceTimeout}ms window ($elapsed ms), retrying loop...")
                                     // Just fall through to next while iteration
                                     _uiState.update { it.copy(isListening = false) }
+                                } else if (isTimeout) {
+                                    // Timeout - stop listening silently (no error message)
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
+                                    _uiState.update { it.copy(isListening = false, error = null) }
+                                    lastInputWasVoice = false
+                                    hasActuallySpoken = true // Break the while loop
                                 } else {
-                                    // Permanent error or out of time
+                                    // Permanent error
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
                                     _uiState.update { it.copy(isListening = false, error = result.message) }
                                     lastInputWasVoice = false
                                     hasActuallySpoken = true // Break the while loop
@@ -415,6 +445,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // So we should only resume hotword if we are definitely NOT going to loop back.
                 
                 if (!lastInputWasVoice) {
+                    releaseWakeLock()
                     sendResumeBroadcast()
                 }
             }
@@ -425,17 +456,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         lastInputWasVoice = false // User manually stopped
         listeningJob?.cancel()
         _uiState.update { it.copy(isListening = false) }
+        releaseWakeLock()
         sendResumeBroadcast()
     }
 
     private var speakingJob: kotlinx.coroutines.Job? = null
 
     private fun speak(text: String) {
+        val cleanText = com.openclaw.assistant.speech.TTSUtils.stripMarkdownForSpeech(text)
         speakingJob = viewModelScope.launch {
             _uiState.update { it.copy(isSpeaking = true) }
 
             val success = if (isTTSReady && tts != null) {
-                speakWithTTS(text)
+                speakWithTTS(cleanText)
             } else {
                 Log.e(TAG, "TTS not ready, skipping speech")
                 false
@@ -453,6 +486,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 startListening()
             } else {
                 // Conversation ended
+                releaseWakeLock()
                 sendResumeBroadcast()
             }
         }
@@ -547,14 +581,67 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         speakingJob?.cancel()
         speakingJob = null
         _uiState.update { it.copy(isSpeaking = false) }
+        releaseWakeLock()
         sendResumeBroadcast()
+    }
+
+    fun interruptAndListen() {
+        tts?.stop()
+        speakingJob?.cancel()
+        speakingJob = null
+        _uiState.update { it.copy(isSpeaking = false) }
+        sendPauseBroadcast()
+        startListening()
     }
 
     // REMOVED private fun addMessage because we now flow from DB
 
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val app = getApplication<Application>()
+        val powerManager = app.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        wakeLock = powerManager.newWakeLock(
+            android.os.PowerManager.PARTIAL_WAKE_LOCK,
+            "OpenClawAssistant::ChatWakeLock"
+        ).apply {
+            acquire(5 * 60 * 1000L) // 5 min max to prevent leak
+        }
+        Log.d(TAG, "WakeLock acquired")
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+                Log.d(TAG, "WakeLock released")
+            }
+        }
+        wakeLock = null
+    }
+
+    private fun startThinkingSound() {
+        thinkingSoundJob?.cancel()
+        if (!settings.thinkingSoundEnabled) return
+        thinkingSoundJob = viewModelScope.launch {
+            delay(2000)
+            while (isActive) {
+                toneGenerator.startTone(android.media.ToneGenerator.TONE_SUP_RINGTONE, 100)
+                delay(3000)
+            }
+        }
+    }
+
+    private fun stopThinkingSound() {
+        thinkingSoundJob?.cancel()
+        thinkingSoundJob = null
+    }
+
     override fun onCleared() {
         super.onCleared()
+        stopThinkingSound()
         speechManager.destroy()
+        toneGenerator.release()
+        releaseWakeLock()
         sendResumeBroadcast()
         // Don't shutdown TTS here - Activity owns it
     }
