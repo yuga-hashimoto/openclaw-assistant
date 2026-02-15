@@ -130,6 +130,21 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_THINKING_SOUND_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_THINKING_SOUND_ENABLED, value).apply()
 
+    // Telnyx API Key (for phone calls)
+    var telnyxApiKey: String
+        get() = prefs.getString(KEY_TELNYX_API_KEY, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_TELNYX_API_KEY, value).apply()
+
+    // Telnyx Connection ID (for Call Control)
+    var telnyxConnectionId: String
+        get() = prefs.getString(KEY_TELNYX_CONNECTION_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_TELNYX_CONNECTION_ID, value).apply()
+
+    // Telnyx Caller ID (default caller ID for outbound calls)
+    var telnyxCallerId: String
+        get() = prefs.getString(KEY_TELNYX_CALLER_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_TELNYX_CALLER_ID, value).apply()
+
     // Connection Verified
     var isVerified: Boolean
         get() = prefs.getBoolean(KEY_IS_VERIFIED, false)
@@ -138,6 +153,11 @@ class SettingsRepository(context: Context) {
     // Check if configured
     fun isConfigured(): Boolean {
         return webhookUrl.isNotBlank() && isVerified
+    }
+
+    // Check if Telnyx phone calling is configured
+    fun isTelnyxConfigured(): Boolean {
+        return telnyxApiKey.isNotBlank() && telnyxConnectionId.isNotBlank()
     }
 
     // Generate new session ID
@@ -167,6 +187,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
         private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
+        private const val KEY_TELNYX_API_KEY = "telnyx_api_key"
+        private const val KEY_TELNYX_CONNECTION_ID = "telnyx_connection_id"
+        private const val KEY_TELNYX_CALLER_ID = "telnyx_caller_id"
 
         // Wake word presets
         const val WAKE_WORD_OPEN_CLAW = "open_claw"
