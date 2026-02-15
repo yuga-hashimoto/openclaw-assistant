@@ -4,7 +4,7 @@
     <string name="notification_channel_name">Hotword Service</string>
     <string name="notification_channel_description">Always-on voice detection service</string>
     <string name="notification_title">OpenClaw Assistant</string>
-    <string name="notification_content">Say "Open Claw" to activate</string>
+    <string name="notification_content">Say \"%s\" to activate</string>
     <string name="default_session_title_format">Voice Session %s</string>
     <string name="chat_session_title_format">Chat %s</string>
     <string name="error_config_required">Please configure Webhook URL</string>
@@ -31,7 +31,7 @@
     <string name="error_speech_general">Speech error</string>
     <string name="error_no_recognition_result">No recognition result</string>
     <string name="error_start_failed">Start error: %s</string>
-    <string name="notification_text">Say \"Open Claw\" to activate</string>
+    <string name="notification_text">Say \"%s\" to activate</string>
     <string name="settings_title">Settings</string>
     <string name="webhook_url_label">Server URL</string>
     <string name="webhook_url_hint">https://your-server</string>
@@ -106,6 +106,10 @@
     <string name="read_ai_responses">Read AI responses aloud</string>
     <string name="continuous_conversation">Continuous Conversation</string>
     <string name="auto_start_mic">Auto-start mic after AI speaks</string>
+    <string name="speech_silence_timeout">Silence Timeout</string>
+    <string name="speech_silence_timeout_desc">Wait time after speech pause</string>
+    <string name="thinking_sound">Thinking Sound</string>
+    <string name="thinking_sound_desc">Play sound while AI is thinking</string>
     <string name="activation_phrase">Activation Phrase</string>
     <string name="custom_wake_word">Custom Wake Word</string>
     <string name="custom_wake_word_hint">e.g., hey buddy</string>
@@ -144,6 +148,11 @@
     <string name="default_agent_label">Default Agent</string>
     <string name="default_agent_hint">main</string>
     <string name="agent_selector">Agent</string>
+
+    <!-- Session Foreground Service -->
+    <string name="notification_session_channel_name">Voice Session</string>
+    <string name="notification_session_title">Conversation in progress</string>
+    <string name="notification_session_content">Voice session is active</string>
 
     <!-- Chat UI -->
     <string name="conversations_title">Conversations</string>

@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.TTSManager
 import com.openclaw.assistant.speech.SpeechResult
+import com.openclaw.assistant.speech.TTSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
@@ -76,7 +78,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     private val chatRepository = com.openclaw.assistant.data.repository.ChatRepository.getInstance(context)
     private var currentSessionId: String? = null
     
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // UI State
     private var currentState = mutableStateOf(AssistantState.IDLE)
@@ -123,6 +125,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     // AudioFocus management
     private var audioFocusRequest: android.media.AudioFocusRequest? = null
 
+    // Session foreground service keeps process alive during conversation (prevents MIUI/HyperOS freeze)
+
     override val lifecycle: androidx.lifecycle.Lifecycle
         get() = lifecycleRegistry
 
@@ -151,7 +155,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     errorMessage = errorMessage.value,
                     audioLevel = audioLevel.value,
                     onClose = { finish() },
-                    onRetry = { startListening() }
+                    onRetry = { startListening() },
+                    onInterrupt = { interruptAndListen() }
                 )
             }
         }
@@ -160,11 +165,30 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
+
+        // Recreate scope if it was cancelled by a previous onHide()
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+        }
+
+        // Ensure any existing SpeechRecognizerManager is cleaned up before creating a new one
+        if (this::speechManager.isInitialized) {
+            try {
+                speechManager.destroy()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to destroy existing SpeechRecognizerManager before recreation", e)
+            }
+        }
+        speechManager = SpeechRecognizerManager(context)
+
         lifecycleRegistry.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_RESUME)
-        
+
+        // Start foreground service to keep process alive during conversation (screen off)
+        SessionForegroundService.start(context)
+
         Log.d(TAG, "Session shown with flags: $showFlags")
-        
+
         // PAUSE Hotword Service to prevent microphone conflict
         sendPauseBroadcast()
         
@@ -199,6 +223,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
         // Clean up audio resources
         abandonAudioFocus()
+        SessionForegroundService.stop(context)
         scope.cancel()
         speechManager.destroy()
         ttsManager.stop()
@@ -213,7 +238,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         
         // Resume Hotword (safety)
         sendResumeBroadcast()
-        
+
+        SessionForegroundService.stop(context)
         ttsManager.shutdown()
         toneGenerator.release()
     }
@@ -234,6 +260,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     override val viewModelStore: androidx.lifecycle.ViewModelStore = androidx.lifecycle.ViewModelStore()
 
     private var listeningJob: Job? = null
+    private var speakingJob: Job? = null
 
     private fun startListening() {
         listeningJob?.cancel()
@@ -268,53 +295,67 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                         android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 }
 
-                speechManager.startListening(null).collectLatest { result ->
-                    when (result) {
-                        is SpeechResult.Ready -> {
-                            currentState.value = AssistantState.LISTENING
-                            toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP)
-                        }
-                        is SpeechResult.Listening -> {
-                            if (currentState.value != AssistantState.LISTENING) {
+                val listenResult = withTimeoutOrNull(15_000L) {
+                    speechManager.startListening(null, settings.speechSilenceTimeout).collectLatest { result ->
+                        when (result) {
+                            is SpeechResult.Ready -> {
                                 currentState.value = AssistantState.LISTENING
+                                toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP)
                             }
-                        }
-                        is SpeechResult.RmsChanged -> {
-                            audioLevel.value = result.rmsdB
-                        }
-                        is SpeechResult.PartialResult -> {
-                            partialText.value = result.text
-                            // Ensure state is listening if we get partial results
-                            if (currentState.value != AssistantState.LISTENING) {
-                                currentState.value = AssistantState.LISTENING
+                            is SpeechResult.Processing -> {
+                                // No sound here - thinking ACK sound will play when AI starts processing
                             }
-                        }
-                        is SpeechResult.Result -> {
-                            hasActuallySpoken = true
-                            // displayText.value = result.text // Don't set displayText here, set userQuery
-                            userQuery.value = result.text
-                            sendToOpenClaw(result.text)
-                        }
-                        is SpeechResult.Error -> {
-                            val elapsed = System.currentTimeMillis() - startTime
-                            val isTimeout = result.code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || 
-                                          result.code == SpeechRecognizer.ERROR_NO_MATCH
-                            
-                            if (isTimeout && settings.continuousMode && elapsed < 5000) {
-                                Log.d(TAG, "Speech timeout within 5s window ($elapsed ms), retrying...")
-                                // Continue to next loop iteration
-                            } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                                speechManager.destroy()
-                                delay(1000)
-                                // Retrying busy doesn't count against 5s window
-                            } else {
-                                currentState.value = AssistantState.ERROR
-                                errorMessage.value = result.message
+                            is SpeechResult.Listening -> {
+                                if (currentState.value != AssistantState.LISTENING) {
+                                    currentState.value = AssistantState.LISTENING
+                                }
+                            }
+                            is SpeechResult.RmsChanged -> {
+                                audioLevel.value = result.rmsdB
+                            }
+                            is SpeechResult.PartialResult -> {
+                                partialText.value = result.text
+                                // Ensure state is listening if we get partial results
+                                if (currentState.value != AssistantState.LISTENING) {
+                                    currentState.value = AssistantState.LISTENING
+                                }
+                            }
+                            is SpeechResult.Result -> {
                                 hasActuallySpoken = true
+                                userQuery.value = result.text
+                                sendToOpenClaw(result.text)
                             }
+                            is SpeechResult.Error -> {
+                                val elapsed = System.currentTimeMillis() - startTime
+                                val isTimeout = result.code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
+                                              result.code == SpeechRecognizer.ERROR_NO_MATCH
+
+                                if (isTimeout && settings.continuousMode && elapsed < 10000) {
+                                    Log.d(TAG, "Speech timeout within 10s window ($elapsed ms), retrying...")
+                                } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                                    speechManager.destroy()
+                                    delay(1000)
+                                } else if (isTimeout) {
+                                    // Timeout - close session without error screen
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
+                                    finish() // Close the session
+                                } else {
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
+                                    currentState.value = AssistantState.ERROR
+                                    errorMessage.value = result.message
+                                    hasActuallySpoken = true
+                                }
+                            }
+                            else -> {}
                         }
-                        else -> {}
                     }
+                }
+
+                if (listenResult == null && !hasActuallySpoken) {
+                    Log.w(TAG, "Speech recognition timed out (15s). Device may be locked.")
+                    // Manual timeout - close session without error screen
+                    finish() // Close the session
+                    hasActuallySpoken = true
                 }
                 
                 if (!hasActuallySpoken) {
@@ -324,8 +365,29 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         }
     }
 
+    private var thinkingSoundJob: Job? = null
+
+    private fun startThinkingSound() {
+        thinkingSoundJob?.cancel()
+        if (!settings.thinkingSoundEnabled) return
+        thinkingSoundJob = scope.launch {
+            delay(2000)
+            while (isActive) {
+                toneGenerator.startTone(android.media.ToneGenerator.TONE_SUP_RINGTONE, 100)
+                delay(3000)
+            }
+        }
+    }
+
+    private fun stopThinkingSound() {
+        thinkingSoundJob?.cancel()
+        thinkingSoundJob = null
+    }
+
     private fun sendToOpenClaw(message: String) {
         currentState.value = AssistantState.THINKING
+        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        startThinkingSound()
         displayText.value = ""
 
         scope.launch {
@@ -371,6 +433,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                             }
                             "error" -> {
                                 if (continuation.isActive) continuation.resume(null)
+                                stopThinkingSound()
                                 currentState.value = AssistantState.ERROR
                                 errorMessage.value = event.errorMessage ?: "Chat failed"
                             }
@@ -410,15 +473,18 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     displayText.value = responseText
                     handleResponseReceived(responseText)
                 } else if (response.error != null) {
+                    stopThinkingSound()
                     currentState.value = AssistantState.ERROR
                     errorMessage.value = response.error
                 } else {
+                    stopThinkingSound()
                     currentState.value = AssistantState.ERROR
                     errorMessage.value = context.getString(R.string.error_no_response)
                 }
             },
             onFailure = { error ->
                 Log.e(TAG, "API error", error)
+                stopThinkingSound()
                 currentState.value = AssistantState.ERROR
                 errorMessage.value = error.message ?: context.getString(R.string.error_network)
             }
@@ -426,6 +492,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     }
 
     private suspend fun handleResponseReceived(responseText: String) {
+        stopThinkingSound()
+
         // Save AI Message
         currentSessionId?.let { sessionId ->
             chatRepository.addMessage(sessionId, responseText, isUser = false)
@@ -436,14 +504,28 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         } else if (settings.continuousMode) {
             delay(500)
             startListening()
+        } else {
+            // TTS無効 & 連続会話OFF: アイドルに戻す
+            currentState.value = AssistantState.IDLE
+            SessionForegroundService.stop(context)
         }
     }
 
-    private fun speakResponse(text: String) {
-        currentState.value = AssistantState.SPEAKING
+    private fun interruptAndListen() {
+        ttsManager.stop()
+        speakingJob?.cancel()
+        speakingJob = null
+        currentState.value = AssistantState.IDLE
+        startListening()
+    }
 
-        scope.launch {
-            val success = ttsManager.speak(text)
+    private fun speakResponse(text: String) {
+        stopThinkingSound()
+        currentState.value = AssistantState.SPEAKING
+        val cleanText = TTSUtils.stripMarkdownForSpeech(text)
+
+        speakingJob = scope.launch {
+            val success = ttsManager.speak(cleanText)
 
             // Abandon audio focus after TTS completes
             abandonAudioFocus()
@@ -453,6 +535,10 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 if (settings.continuousMode) {
                     delay(500)
                     startListening()
+                } else {
+                    // 連続会話OFFの場合、セッションを終了
+                    currentState.value = AssistantState.IDLE
+                    SessionForegroundService.stop(context)
                 }
             } else {
                 currentState.value = AssistantState.ERROR
@@ -460,6 +546,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             }
         }
     }
+
+
 
     private fun abandonAudioFocus() {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
@@ -497,7 +585,8 @@ fun AssistantUI(
     errorMessage: String?,
     audioLevel: Float,
     onClose: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onInterrupt: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -578,6 +667,13 @@ fun AssistantUI(
                             AssistantState.THINKING, AssistantState.PROCESSING -> Color(0xFFFFC107)
                             AssistantState.ERROR -> Color(0xFFF44336)
                             else -> Color(0xFF9E9E9E)
+                        }
+                    )
+                    .then(
+                        if (state == AssistantState.SPEAKING) {
+                            Modifier.clickable { onInterrupt() }
+                        } else {
+                            Modifier
                         }
                     ),
                 contentAlignment = Alignment.Center

@@ -22,3 +22,7 @@
 # Vosk speech recognition
 -keep class org.vosk.** { *; }
 -dontwarn org.vosk.**
+
+# Markdown renderer (JetBrains markdown parser)
+-keep class org.intellij.markdown.** { *; }
+-dontwarn org.intellij.markdown.**
