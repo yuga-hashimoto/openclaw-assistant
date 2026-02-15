@@ -113,7 +113,7 @@ fun SettingsScreen(
                     TextButton(
                         onClick = {
                             settings.webhookUrl = webhookUrl
-                            settings.authToken = authToken
+                            settings.authToken = authToken.trim()
                             settings.connectionMode = connectionMode
                             settings.gatewayPort = gatewayPort.toIntOrNull() ?: 18789
                             settings.ttsEnabled = ttsEnabled
@@ -178,7 +178,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = authToken,
                         onValueChange = { 
-                            authToken = it
+                            authToken = it.trim()
                             testResult = null
                         },
                         label = { Text(stringResource(R.string.auth_token_label)) },
@@ -266,12 +266,12 @@ fun SettingsScreen(
                                 try {
                                     isTesting = true
                                     testResult = null
-                                    val result = apiClient.testConnection(webhookUrl, authToken)
+                                    val result = apiClient.testConnection(webhookUrl, authToken.trim())
                                     result.fold(
                                         onSuccess = {
                                             testResult = TestResult(success = true, message = context.getString(R.string.connected))
                                             settings.webhookUrl = webhookUrl
-                                            settings.authToken = authToken
+                                            settings.authToken = authToken.trim()
                                             settings.isVerified = true
                                         },
                                         onFailure = {

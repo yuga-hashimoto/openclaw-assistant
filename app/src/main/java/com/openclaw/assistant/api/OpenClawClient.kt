@@ -59,7 +59,7 @@ class OpenClawClient {
                 .addHeader("Accept", "application/json")
 
             if (!authToken.isNullOrBlank()) {
-                requestBuilder.addHeader("Authorization", "Bearer $authToken")
+                requestBuilder.addHeader("Authorization", "Bearer ${authToken.trim()}")
             }
 
             val request = requestBuilder.build()
@@ -105,7 +105,7 @@ class OpenClawClient {
                 .head()
 
             if (!authToken.isNullOrBlank()) {
-                requestBuilder.addHeader("Authorization", "Bearer $authToken")
+                requestBuilder.addHeader("Authorization", "Bearer ${authToken.trim()}")
             }
 
             var request = requestBuilder.build()
@@ -146,7 +146,7 @@ class OpenClawClient {
                 .addHeader("Content-Type", "application/json")
 
             if (!authToken.isNullOrBlank()) {
-                requestBuilder.addHeader("Authorization", "Bearer $authToken")
+                requestBuilder.addHeader("Authorization", "Bearer ${authToken.trim()}")
             }
 
             request = requestBuilder.build()
