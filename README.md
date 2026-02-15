@@ -22,6 +22,7 @@
 - 💬 **In-App Chat** - Hybrid text & voice input
 - 🔒 **Privacy First** - Settings stored with encryption
 - 📴 **Offline Wake Word Detection** - Local processing with Vosk
+- 📞 **Phone Calling** - Make real phone calls via Telnyx (optional)
 
 ### 📱 How to Use
 
@@ -109,6 +110,28 @@ In the app settings:
 | `FOREGROUND_SERVICE` | Always-on wake word detection |
 | `POST_NOTIFICATIONS` | Status notifications |
 
+### 📞 Phone Calling (Optional)
+
+The app can make real phone calls via [Telnyx](https://telnyx.com). This enables your AI assistant to call any phone number.
+
+**Setup:**
+1. Create a Telnyx account and get an API key
+2. Create a Call Control application in Telnyx dashboard
+3. Note your Connection ID
+4. Configure a phone number as your caller ID
+5. Enter credentials in Settings → Phone Calling
+
+**Requirements:**
+- Telnyx API key
+- Call Control connection ID
+- Verified caller ID phone number
+
+**How it works:**
+- Say "Call [phone number]" or use the dialpad
+- The AI assistant speaks through the phone call
+- Responses are synthesized via Telnyx TTS
+- Works with ClawdTalk for AI-powered conversations
+
 ### 🤝 Contributing
 
 Pull Requests welcome! Feel free to report issues.
@@ -194,6 +217,7 @@ Authorization: Bearer <gateway-auth-token>
 - 💬 **In-App Chat** - テキスト＆音声のハイブリッド入力
 - 🔒 **プライバシー重視** - 設定は暗号化保存
 - 📴 **オフライン対応のウェイクワード検知** - Voskによるローカル処理
+- 📞 **電話発信** - Telnyx経由で実際の電話をかける（オプション）
 
 ### 📱 使い方
 
