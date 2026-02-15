@@ -125,6 +125,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     // AudioFocus management
     private var audioFocusRequest: android.media.AudioFocusRequest? = null
 
+    // Session foreground service keeps process alive during conversation (prevents MIUI/HyperOS freeze)
+
     override val lifecycle: androidx.lifecycle.Lifecycle
         get() = lifecycleRegistry
 
@@ -182,6 +184,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         lifecycleRegistry.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_RESUME)
 
+        // Start foreground service to keep process alive during conversation (screen off)
+        SessionForegroundService.start(context)
+
         Log.d(TAG, "Session shown with flags: $showFlags")
 
         // PAUSE Hotword Service to prevent microphone conflict
@@ -218,6 +223,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
         // Clean up audio resources
         abandonAudioFocus()
+        SessionForegroundService.stop(context)
         scope.cancel()
         speechManager.destroy()
         ttsManager.stop()
@@ -232,7 +238,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         
         // Resume Hotword (safety)
         sendResumeBroadcast()
-        
+
+        SessionForegroundService.stop(context)
         ttsManager.shutdown()
         toneGenerator.release()
     }
@@ -295,6 +302,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                                 currentState.value = AssistantState.LISTENING
                                 toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP)
                             }
+                            is SpeechResult.Processing -> {
+                                // No sound here - thinking ACK sound will play when AI starts processing
+                            }
                             is SpeechResult.Listening -> {
                                 if (currentState.value != AssistantState.LISTENING) {
                                     currentState.value = AssistantState.LISTENING
@@ -325,7 +335,12 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                                 } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
                                     speechManager.destroy()
                                     delay(1000)
+                                } else if (isTimeout) {
+                                    // Timeout - close session without error screen
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
+                                    finish() // Close the session
                                 } else {
+                                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_NACK, 100)
                                     currentState.value = AssistantState.ERROR
                                     errorMessage.value = result.message
                                     hasActuallySpoken = true
@@ -338,8 +353,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
                 if (listenResult == null && !hasActuallySpoken) {
                     Log.w(TAG, "Speech recognition timed out (15s). Device may be locked.")
-                    currentState.value = AssistantState.ERROR
-                    errorMessage.value = context.getString(R.string.error_speech_input_timeout)
+                    // Manual timeout - close session without error screen
+                    finish() // Close the session
                     hasActuallySpoken = true
                 }
                 
@@ -482,6 +497,10 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         } else if (settings.continuousMode) {
             delay(500)
             startListening()
+        } else {
+            // TTS無効 & 連続会話OFF: アイドルに戻す
+            currentState.value = AssistantState.IDLE
+            SessionForegroundService.stop(context)
         }
     }
 
@@ -509,6 +528,10 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 if (settings.continuousMode) {
                     delay(500)
                     startListening()
+                } else {
+                    // 連続会話OFFの場合、セッションを終了
+                    currentState.value = AssistantState.IDLE
+                    SessionForegroundService.stop(context)
                 }
             } else {
                 currentState.value = AssistantState.ERROR
@@ -516,6 +539,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             }
         }
     }
+
+
 
     private fun abandonAudioFocus() {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager

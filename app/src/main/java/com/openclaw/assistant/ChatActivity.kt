@@ -48,6 +48,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.ui.chat.ChatMessage
+import com.openclaw.assistant.ui.components.MarkdownText
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
 import com.openclaw.assistant.gateway.ConnectionState
@@ -482,12 +483,19 @@ fun MessageBubble(message: ChatMessage) {
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = message.text,
-                        color = contentColor,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
-                    )
+                    if (isUser) {
+                        Text(
+                            text = message.text,
+                            color = contentColor,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+                    } else {
+                        MarkdownText(
+                            markdown = message.text,
+                            color = contentColor
+                        )
+                    }
                 }
             }
             Text(
@@ -594,11 +602,9 @@ fun StreamingBubble(text: String, onStop: () -> Unit) {
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = text,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                    MarkdownText(
+                        markdown = text,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

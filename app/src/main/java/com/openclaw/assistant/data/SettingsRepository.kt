@@ -120,9 +120,9 @@ class SettingsRepository(context: Context) {
         get() = prefs.getInt(KEY_GATEWAY_PORT, 18789)
         set(value) = prefs.edit().putInt(KEY_GATEWAY_PORT, value).apply()
 
-    // Speech recognition silence timeout in ms (default 2500ms)
+    // Speech recognition silence timeout in ms (default 5000ms)
     var speechSilenceTimeout: Long
-        get() = prefs.getLong(KEY_SPEECH_SILENCE_TIMEOUT, 2500L)
+        get() = prefs.getLong(KEY_SPEECH_SILENCE_TIMEOUT, 5000L)
         set(value) = prefs.edit().putLong(KEY_SPEECH_SILENCE_TIMEOUT, value).apply()
 
     // Thinking sound enabled

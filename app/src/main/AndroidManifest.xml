@@ -2,25 +2,28 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 音声認識 -->
+    <!-- Voice recognition -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     
-    <!-- ネットワーク通信 -->
+    <!-- Network communication -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
-    <!-- フォアグラウンドサービス（常時聴取） -->
+    <!-- Foreground service (Ambient listening) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
-    <!-- バッテリー最適化除外リクエスト -->
+    <!-- Battery optimization exclusion request -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     
-    <!-- 起動時サービス開始 -->
+    <!-- Keep CPU running even when screen is OFF -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Start service on boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- 他のTTSエンジンを検出するために必要 (Android 11+) -->
+    <!-- Required to detect other TTS engines (Android 11+) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
@@ -40,7 +43,7 @@
         android:theme="@style/Theme.OpenClawAssistant"
         tools:targetApi="34">
 
-        <!-- メインActivity -->
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -51,19 +54,19 @@
             </intent-filter>
         </activity>
 
-        <!-- 設定Activity -->
+        <!-- Settings Activity -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.OpenClawAssistant" />
 
-        <!-- チャットActivity -->
+        <!-- Chat Activity -->
         <activity
             android:name=".ChatActivity"
             android:exported="false"
             android:theme="@style/Theme.OpenClawAssistant" />
 
-        <!-- Voice Interaction Service (ホームボタン長押し) -->
+        <!-- Voice Interaction Service (Home button long press) -->
         <service
             android:name=".service.OpenClawAssistantService"
             android:exported="true"
@@ -92,7 +95,13 @@
             </intent-filter>
         </service>
 
-        <!-- Hotword Detection Service (常時聴取) -->
+        <!-- Session Foreground Service (prevents process freeze during conversation) -->
+        <service
+            android:name=".service.SessionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Hotword Detection Service (Ambient Listening) -->
         <service
             android:name=".service.HotwordService"
             android:exported="false"

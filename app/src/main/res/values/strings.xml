@@ -144,6 +144,11 @@
     <string name="open_settings">Open Settings</string>
     <string name="cancel">Cancel</string>
 
+    <!-- Session Foreground Service -->
+    <string name="notification_session_channel_name">Voice Session</string>
+    <string name="notification_session_title">Conversation in progress</string>
+    <string name="notification_session_content">Voice session is active</string>
+
     <!-- Chat UI -->
     <string name="conversations_title">Conversations</string>
     <string name="new_chat">New Chat</string>

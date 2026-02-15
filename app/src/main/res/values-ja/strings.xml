@@ -120,6 +120,11 @@
     <string name="open_settings">設定を開く</string>
     <string name="cancel">キャンセル</string>
 
+    <!-- Session Foreground Service -->
+    <string name="notification_session_channel_name">音声セッション</string>
+    <string name="notification_session_title">会話中</string>
+    <string name="notification_session_content">音声セッションがアクティブです</string>
+
     <!-- Chat UI -->
     <string name="conversations_title">会話</string>
     <string name="new_chat">新規チャット</string>
