@@ -21,6 +21,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Decode google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "ERROR: GOOGLE_SERVICES_JSON secret is not set or is empty."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 

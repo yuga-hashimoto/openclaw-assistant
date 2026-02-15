@@ -244,7 +244,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val sessionId = _currentSessionId.value ?: return
 
         _uiState.update { it.copy(isThinking = true, streamingContent = null, isStreaming = false) }
-        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        if (lastInputWasVoice) {
+            toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        }
         startThinkingSound()
 
         viewModelScope.launch {
@@ -621,7 +623,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startThinkingSound() {
         thinkingSoundJob?.cancel()
-        if (!settings.thinkingSoundEnabled) return
+        if (!settings.thinkingSoundEnabled || !lastInputWasVoice) return
         thinkingSoundJob = viewModelScope.launch {
             delay(2000)
             while (isActive) {

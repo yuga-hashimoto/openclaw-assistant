@@ -8,4 +8,6 @@
     <issue id="GradleDependency" severity="warning" />
     <!-- 古いSDKバージョンチェックを警告レベルに下げる -->
     <issue id="ObsoleteSdkInt" severity="warning" />
+    <!-- Firebase dependencies bring activity/fragment lint checks -->
+    <issue id="InvalidFragmentVersionForActivityResult" severity="warning" />
 </lint>

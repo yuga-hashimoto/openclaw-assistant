@@ -116,8 +116,13 @@
     <string name="connection_status_reconnecting">再接続中…</string>
 
     <!-- Permission handling -->
+    <string name="mic_permission_rationale_title">マイクの権限が必要です</string>
+    <string name="mic_permission_rationale_message">ウェイクワード検知には、音声コマンドを聞き取るためにマイクへのアクセスが必要です。この権限がないと、ウェイクワード検知は動作しません。\n\n次の画面でマイクの権限を許可してください。</string>
+    <string name="mic_permission_denied_title">マイクの権限が拒否されました</string>
+    <string name="mic_permission_denied_message">マイクの権限が拒否されました。ウェイクワード検知を使用するにはマイクへのアクセスが必要です。\n\n有効にするには:\n1. 下の「設定を開く」をタップ\n2.「権限」をタップ\n3.「マイク」を有効にする\n4. アプリに戻って再度お試しください</string>
     <string name="mic_permission_denied_permanently">マイクの権限が永久に拒否されています。ウェイクワード検知を使用するには、アプリの設定から権限を有効にしてください。</string>
     <string name="open_settings">設定を開く</string>
+    <string name="grant_permission">権限を許可</string>
     <string name="cancel">キャンセル</string>
 
     <!-- Session Foreground Service -->

@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.service.voice.VoiceInteractionService
 import android.service.voice.VoiceInteractionSession
 import android.service.voice.VoiceInteractionSessionService
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
 
@@ -21,11 +23,19 @@ class OpenClawAssistantService : VoiceInteractionService() {
 
     companion object {
         private const val TAG = "OpenClawAssistantSvc"
+        private const val PENDING_SESSION_TIMEOUT_MS = 30_000L
         const val ACTION_SHOW_ASSISTANT = "com.openclaw.assistant.ACTION_SHOW_ASSISTANT"
     }
 
     private var isServiceReady = false
     private var pendingShowSession = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val pendingSessionTimeoutRunnable = Runnable {
+        if (pendingShowSession) {
+            Log.w(TAG, "Pending showSession timed out. Clearing.")
+            pendingShowSession = false
+        }
+    }
 
     private val debugReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -79,6 +89,8 @@ class OpenClawAssistantService : VoiceInteractionService() {
         } else {
             Log.e(TAG, "Service not ready. Queuing showSession request.")
             pendingShowSession = true
+            handler.removeCallbacks(pendingSessionTimeoutRunnable)
+            handler.postDelayed(pendingSessionTimeoutRunnable, PENDING_SESSION_TIMEOUT_MS)
         }
     }
 
@@ -88,6 +100,7 @@ class OpenClawAssistantService : VoiceInteractionService() {
         isServiceReady = true
         if (pendingShowSession) {
             pendingShowSession = false
+            handler.removeCallbacks(pendingSessionTimeoutRunnable)
             try {
                 val args = Bundle()
                 showSession(args, VoiceInteractionSession.SHOW_WITH_ASSIST)
@@ -102,6 +115,8 @@ class OpenClawAssistantService : VoiceInteractionService() {
         super.onShutdown()
         Log.e(TAG, "VoiceInteractionService onShutdown")
         isServiceReady = false
+        pendingShowSession = false
+        handler.removeCallbacks(pendingSessionTimeoutRunnable)
         unregisterReceiver(debugReceiver)
     }
 }

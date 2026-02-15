@@ -1,6 +1,7 @@
 package com.openclaw.assistant.gateway
 
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -201,8 +202,13 @@ class GatewayClient {
 
                 connectOnce(host, desiredPort, desiredToken, desiredUseTls)
                 attempt = 0
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Connection failed (attempt $attempt): ${e.message}")
+                if (attempt == 0) {
+                    FirebaseCrashlytics.getInstance().recordException(e)
+                }
                 attempt++
                 _connectionState.value = ConnectionState.RECONNECTING
                 val sleepMs = min(8_000L, (350.0 * 1.7.pow(attempt.toDouble())).toLong())
@@ -468,6 +474,7 @@ class GatewayClient {
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             Log.w(TAG, "WebSocket failure: ${t.message}")
+            FirebaseCrashlytics.getInstance().recordException(t)
             if (connectDeferred?.isCompleted == false) {
                 connectDeferred?.completeExceptionally(t)
             }

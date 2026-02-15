@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
                     showPermissionSettingsDialog()
                 } else {
-                    Toast.makeText(this, getString(R.string.mic_permission_required), Toast.LENGTH_SHORT).show()
+                    showPermissionDeniedDialog()
                 }
             }
         } else {
@@ -160,11 +160,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 HotwordService.start(this)
                 Toast.makeText(this, getString(R.string.hotword_started), Toast.LENGTH_SHORT).show()
             } else if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
-                pendingHotwordStart = true
-                Toast.makeText(this, getString(R.string.mic_permission_required), Toast.LENGTH_SHORT).show()
-                permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+                // Show rationale dialog before requesting permission
+                showPermissionRationaleDialog()
             } else {
-                // First-time request or permanently denied: launch and decide in callback
+                // First-time request: launch directly
                 pendingHotwordStart = true
                 permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
             }
@@ -175,9 +174,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun showPermissionRationaleDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.mic_permission_rationale_title))
+            .setMessage(getString(R.string.mic_permission_rationale_message))
+            .setPositiveButton(getString(R.string.grant_permission)) { _, _ ->
+                pendingHotwordStart = true
+                permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
+    }
+
+    private fun showPermissionDeniedDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.mic_permission_denied_title))
+            .setMessage(getString(R.string.mic_permission_denied_message))
+            .setPositiveButton(getString(R.string.open_settings)) { _, _ -> openAppSettings() }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
+    }
+
     private fun showPermissionSettingsDialog() {
         android.app.AlertDialog.Builder(this)
-            .setTitle(getString(R.string.mic_permission_required))
+            .setTitle(getString(R.string.mic_permission_denied_title))
             .setMessage(getString(R.string.mic_permission_denied_permanently))
             .setPositiveButton(getString(R.string.open_settings)) { _, _ -> openAppSettings() }
             .setNegativeButton(getString(R.string.cancel), null)

@@ -140,8 +140,13 @@
     <string name="connection_status_reconnecting">Reconnecting…</string>
 
     <!-- Permission handling -->
+    <string name="mic_permission_rationale_title">Microphone Permission Required</string>
+    <string name="mic_permission_rationale_message">Wake word detection needs microphone access to listen for your voice command. Without this permission, wake word detection cannot work.\n\nPlease grant microphone permission on the next screen.</string>
+    <string name="mic_permission_denied_title">Microphone Permission Denied</string>
+    <string name="mic_permission_denied_message">Microphone permission was denied. Wake word detection requires microphone access to work.\n\nTo enable it:\n1. Tap \"Open Settings\" below\n2. Tap \"Permissions\"\n3. Enable \"Microphone\"\n4. Return to the app and try again</string>
     <string name="mic_permission_denied_permanently">Microphone permission has been permanently denied. Please enable it in app settings to use wake word detection.</string>
     <string name="open_settings">Open Settings</string>
+    <string name="grant_permission">Grant Permission</string>
     <string name="cancel">Cancel</string>
 
     <!-- Session Foreground Service -->
