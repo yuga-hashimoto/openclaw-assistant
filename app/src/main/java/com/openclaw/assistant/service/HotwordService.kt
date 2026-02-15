@@ -68,8 +68,8 @@ class HotwordService : Service(), VoskRecognitionListener {
     
     private lateinit var settings: SettingsRepository
 
-    private var isListeningForCommand = false
-    private var isSessionActive = false
+    @Volatile private var isListeningForCommand = false
+    @Volatile private var isSessionActive = false
     private var audioRetryCount = 0
     private val MAX_AUDIO_RETRIES = 5
     private var watchdogJob: Job? = null
@@ -161,7 +161,7 @@ class HotwordService : Service(), VoskRecognitionListener {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        alarmManager.set(
+        alarmManager.setAndAllowWhileIdle(
             android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP,
             android.os.SystemClock.elapsedRealtime() + 3000,
             pendingIntent
@@ -363,7 +363,7 @@ class HotwordService : Service(), VoskRecognitionListener {
             return
         }
         audioRetryCount++
-        val delayMs = (2000L * audioRetryCount).coerceAtMost(15000L)
+        val delayMs = (2000L * audioRetryCount).coerceAtMost(10000L)
         Log.w(TAG, "Scheduling audio retry #$audioRetryCount in ${delayMs}ms")
         scope.launch {
             delay(delayMs)
@@ -445,6 +445,7 @@ class HotwordService : Service(), VoskRecognitionListener {
     private fun resumeHotwordDetection() {
         if (isSessionActive) return
         isListeningForCommand = false
+        audioRetryCount = 0
         updateNotification()
         scope.launch {
             delay(500)

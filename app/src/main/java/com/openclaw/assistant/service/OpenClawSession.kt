@@ -169,7 +169,14 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         }
 
-        // Recreate speechManager (destroyed by previous onHide())
+        // Ensure any existing SpeechRecognizerManager is cleaned up before creating a new one
+        if (this::speechManager.isInitialized) {
+            try {
+                speechManager.destroy()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to destroy existing SpeechRecognizerManager before recreation", e)
+            }
+        }
         speechManager = SpeechRecognizerManager(context)
 
         lifecycleRegistry.handleLifecycleEvent(androidx.lifecycle.Lifecycle.Event.ON_START)
@@ -246,6 +253,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     override val viewModelStore: androidx.lifecycle.ViewModelStore = androidx.lifecycle.ViewModelStore()
 
     private var listeningJob: Job? = null
+    private var speakingJob: Job? = null
 
     private fun startListening() {
         listeningJob?.cancel()
@@ -313,7 +321,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                                               result.code == SpeechRecognizer.ERROR_NO_MATCH
 
                                 if (isTimeout && settings.continuousMode && elapsed < 10000) {
-                                    Log.d(TAG, "Speech timeout within window ($elapsed ms), retrying...")
+                                    Log.d(TAG, "Speech timeout within 10s window ($elapsed ms), retrying...")
                                 } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
                                     speechManager.destroy()
                                     delay(1000)
@@ -443,9 +451,11 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     displayText.value = responseText
                     handleResponseReceived(responseText)
                 } else if (response.error != null) {
+                    stopThinkingSound()
                     currentState.value = AssistantState.ERROR
                     errorMessage.value = response.error
                 } else {
+                    stopThinkingSound()
                     currentState.value = AssistantState.ERROR
                     errorMessage.value = context.getString(R.string.error_no_response)
                 }
@@ -460,6 +470,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     }
 
     private suspend fun handleResponseReceived(responseText: String) {
+        stopThinkingSound()
+
         // Save AI Message
         currentSessionId?.let { sessionId ->
             chatRepository.addMessage(sessionId, responseText, isUser = false)
@@ -475,6 +487,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     private fun interruptAndListen() {
         ttsManager.stop()
+        speakingJob?.cancel()
+        speakingJob = null
         currentState.value = AssistantState.IDLE
         startListening()
     }
@@ -484,7 +498,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         currentState.value = AssistantState.SPEAKING
         val cleanText = TTSUtils.stripMarkdownForSpeech(text)
 
-        scope.launch {
+        speakingJob = scope.launch {
             val success = ttsManager.speak(cleanText)
 
             // Abandon audio focus after TTS completes

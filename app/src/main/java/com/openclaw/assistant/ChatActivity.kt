@@ -711,7 +711,11 @@ fun ChatInputArea(
         ) {
             Icon(
                 imageVector = if (value.isBlank()) {
-                     if (isListening) Icons.Default.Stop else Icons.Default.Mic
+                     when {
+                         isListening -> Icons.Default.Stop
+                         isSpeaking -> Icons.Default.Mic  // Interrupt TTS and listen
+                         else -> Icons.Default.Mic
+                     }
                 } else {
                      Icons.AutoMirrored.Filled.Send
                 },

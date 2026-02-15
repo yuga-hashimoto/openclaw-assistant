@@ -303,6 +303,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val streamedText = _uiState.value.streamingContent
 
         currentRunId = null
+        stopThinkingSound()
         _uiState.update { it.copy(isStreaming = false, streamingContent = null) }
 
         if (!streamedText.isNullOrBlank()) {
@@ -400,7 +401,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                               result.code == SpeechRecognizer.ERROR_NO_MATCH
                                 
                                 if (isTimeout && settings.continuousMode && elapsed < 10000) {
-                                    Log.d(TAG, "Speech timeout within 5s window ($elapsed ms), retrying loop...")
+                                    Log.d(TAG, "Speech timeout within 10s window ($elapsed ms), retrying loop...")
                                     // Just fall through to next while iteration
                                     _uiState.update { it.copy(isListening = false) }
                                 } else {
@@ -569,6 +570,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         speakingJob?.cancel()
         speakingJob = null
         _uiState.update { it.copy(isSpeaking = false) }
+        sendPauseBroadcast()
         startListening()
     }
 

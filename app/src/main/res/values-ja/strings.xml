@@ -126,4 +126,7 @@
     <string name="delete">削除</string>
     <string name="menu">メニュー</string>
     <string name="back">戻る</string>
+
+    <!-- Error Messages -->
+    <string name="error_speech_input_timeout">音声入力がありませんでした</string>
 </resources>
