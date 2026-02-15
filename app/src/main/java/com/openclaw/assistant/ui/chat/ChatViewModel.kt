@@ -13,6 +13,7 @@ import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.SpeechResult
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
@@ -58,6 +59,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // WebSocket streaming state
     private var currentRunId: String? = null
+    private var thinkingSoundJob: Job? = null
     
     // Session Management
     val allSessions = chatRepository.allSessions.stateIn(
@@ -240,6 +242,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.update { it.copy(isThinking = true, streamingContent = null, isStreaming = false) }
         toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        startThinkingSound()
 
         viewModelScope.launch {
             try {
@@ -252,6 +255,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     sendViaHttp(sessionId, text)
                 }
             } catch (e: Exception) {
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, isStreaming = false, error = e.message) }
             }
         }
@@ -261,6 +265,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val sessionKey = gatewayClient.mainSessionKey ?: "main"
             currentRunId = gatewayClient.sendChat(sessionKey, text)
+            stopThinkingSound()
             _uiState.update { it.copy(isThinking = false, isStreaming = true) }
             // Response will arrive via chatEvents + agentEvents observers
         } catch (e: Exception) {
@@ -282,10 +287,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val responseText = response.getResponseText() ?: "No response"
                 chatRepository.addMessage(sessionId, responseText, isUser = false)
 
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false) }
                 afterResponseReceived(responseText)
             },
             onFailure = { error ->
+                stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, error = error.message) }
             }
         )
@@ -308,6 +315,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun onStreamError(errorMessage: String) {
         currentRunId = null
+        stopThinkingSound()
         _uiState.update { it.copy(isThinking = false, isStreaming = false, streamingContent = null, error = errorMessage) }
     }
 
@@ -375,6 +383,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     speechManager.startListening(null, settings.speechSilenceTimeout).collect { result ->
                         Log.e(TAG, "SpeechResult: $result")
                         when (result) {
+                            is SpeechResult.Ready -> {
+                                toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                            }
                             is SpeechResult.PartialResult -> {
                                 _uiState.update { it.copy(partialText = result.text) }
                             }
@@ -563,8 +574,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // REMOVED private fun addMessage because we now flow from DB
 
+    private fun startThinkingSound() {
+        thinkingSoundJob?.cancel()
+        if (!settings.thinkingSoundEnabled) return
+        thinkingSoundJob = viewModelScope.launch {
+            delay(2000)
+            while (isActive) {
+                toneGenerator.startTone(android.media.ToneGenerator.TONE_SUP_RINGTONE, 100)
+                delay(3000)
+            }
+        }
+    }
+
+    private fun stopThinkingSound() {
+        thinkingSoundJob?.cancel()
+        thinkingSoundJob = null
+    }
+
     override fun onCleared() {
         super.onCleared()
+        stopThinkingSound()
         speechManager.destroy()
         toneGenerator.release()
         sendResumeBroadcast()

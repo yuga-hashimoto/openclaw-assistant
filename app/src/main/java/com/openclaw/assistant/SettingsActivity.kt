@@ -68,6 +68,7 @@ fun SettingsScreen(
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
     var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat()) }
+    var thinkingSoundEnabled by remember { mutableStateOf(settings.thinkingSoundEnabled) }
 
     var showAuthToken by remember { mutableStateOf(false) }
     var showWakeWordMenu by remember { mutableStateOf(false) }
@@ -122,6 +123,7 @@ fun SettingsScreen(
                             settings.wakeWordPreset = wakeWordPreset
                             settings.customWakeWord = customWakeWord
                             settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
+                            settings.thinkingSoundEnabled = thinkingSoundEnabled
                             onSave()
                         },
                         enabled = webhookUrl.isNotBlank() && !isTesting
@@ -483,6 +485,20 @@ fun SettingsScreen(
                         steps = 17,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+
+                    // Thinking sound
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.thinking_sound), style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.thinking_sound_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(checked = thinkingSoundEnabled, onCheckedChange = { thinkingSoundEnabled = it })
+                    }
                 }
             }
 

@@ -84,6 +84,8 @@
     <string name="auto_start_mic">AI発話後に自動でマイクを起動</string>
     <string name="speech_silence_timeout">無音タイムアウト</string>
     <string name="speech_silence_timeout_desc">発話後の待機時間</string>
+    <string name="thinking_sound">思考中の音</string>
+    <string name="thinking_sound_desc">AI思考中に音を鳴らす</string>
     <string name="activation_phrase">起動フレーズ</string>
     <string name="custom_wake_word">カスタムウェイクワード</string>
     <string name="custom_wake_word_hint">例: ねえバディ</string>

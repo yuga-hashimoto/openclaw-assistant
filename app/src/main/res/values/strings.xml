@@ -108,6 +108,8 @@
     <string name="auto_start_mic">Auto-start mic after AI speaks</string>
     <string name="speech_silence_timeout">Silence Timeout</string>
     <string name="speech_silence_timeout_desc">Wait time after speech pause</string>
+    <string name="thinking_sound">Thinking Sound</string>
+    <string name="thinking_sound_desc">Play sound while AI is thinking</string>
     <string name="activation_phrase">Activation Phrase</string>
     <string name="custom_wake_word">Custom Wake Word</string>
     <string name="custom_wake_word_hint">e.g., hey buddy</string>

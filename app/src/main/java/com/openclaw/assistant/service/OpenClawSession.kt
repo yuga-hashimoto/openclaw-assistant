@@ -342,9 +342,29 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         }
     }
 
+    private var thinkingSoundJob: Job? = null
+
+    private fun startThinkingSound() {
+        thinkingSoundJob?.cancel()
+        if (!settings.thinkingSoundEnabled) return
+        thinkingSoundJob = scope.launch {
+            delay(2000)
+            while (isActive) {
+                toneGenerator.startTone(android.media.ToneGenerator.TONE_SUP_RINGTONE, 100)
+                delay(3000)
+            }
+        }
+    }
+
+    private fun stopThinkingSound() {
+        thinkingSoundJob?.cancel()
+        thinkingSoundJob = null
+    }
+
     private fun sendToOpenClaw(message: String) {
         currentState.value = AssistantState.THINKING
         toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
+        startThinkingSound()
         displayText.value = ""
 
         scope.launch {
@@ -385,6 +405,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                             }
                             "error" -> {
                                 if (continuation.isActive) continuation.resume(null)
+                                stopThinkingSound()
                                 currentState.value = AssistantState.ERROR
                                 errorMessage.value = event.errorMessage ?: "Chat failed"
                             }
@@ -431,6 +452,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             },
             onFailure = { error ->
                 Log.e(TAG, "API error", error)
+                stopThinkingSound()
                 currentState.value = AssistantState.ERROR
                 errorMessage.value = error.message ?: context.getString(R.string.error_network)
             }
@@ -458,6 +480,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     }
 
     private fun speakResponse(text: String) {
+        stopThinkingSound()
         currentState.value = AssistantState.SPEAKING
         val cleanText = TTSUtils.stripMarkdownForSpeech(text)
 
