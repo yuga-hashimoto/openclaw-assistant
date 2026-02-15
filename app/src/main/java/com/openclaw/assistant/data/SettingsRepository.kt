@@ -120,6 +120,16 @@ class SettingsRepository(context: Context) {
         get() = prefs.getInt(KEY_GATEWAY_PORT, 18789)
         set(value) = prefs.edit().putInt(KEY_GATEWAY_PORT, value).apply()
 
+    // Speech recognition silence timeout in ms (default 5000ms)
+    var speechSilenceTimeout: Long
+        get() = prefs.getLong(KEY_SPEECH_SILENCE_TIMEOUT, 5000L)
+        set(value) = prefs.edit().putLong(KEY_SPEECH_SILENCE_TIMEOUT, value).apply()
+
+    // Thinking sound enabled
+    var thinkingSoundEnabled: Boolean
+        get() = prefs.getBoolean(KEY_THINKING_SOUND_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_THINKING_SOUND_ENABLED, value).apply()
+
     // Connection Verified
     var isVerified: Boolean
         get() = prefs.getBoolean(KEY_IS_VERIFIED, false)
@@ -155,6 +165,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_TTS_ENGINE = "tts_engine"
         private const val KEY_CONNECTION_MODE = "connection_mode"
         private const val KEY_GATEWAY_PORT = "gateway_port"
+        private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
+        private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
 
         // Wake word presets
         const val WAKE_WORD_OPEN_CLAW = "open_claw"

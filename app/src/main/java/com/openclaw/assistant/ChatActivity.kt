@@ -48,6 +48,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.ui.chat.ChatMessage
+import com.openclaw.assistant.ui.components.MarkdownText
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
 import com.openclaw.assistant.gateway.ConnectionState
@@ -112,6 +113,11 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     },
                     onStopListening = { viewModel.stopListening() },
                     onStopSpeaking = { viewModel.stopSpeaking() },
+                    onInterruptAndListen = {
+                        if (checkPermission()) {
+                            viewModel.interruptAndListen()
+                        }
+                    },
                     onStopGeneration = { viewModel.stopGeneration() },
                     onBack = { finish() },
                     onSelectSession = { viewModel.selectSession(it) },
@@ -205,6 +211,7 @@ fun ChatScreen(
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onStopSpeaking: () -> Unit,
+    onInterruptAndListen: () -> Unit,
     onStopGeneration: () -> Unit,
     onBack: () -> Unit,
     onSelectSession: (String) -> Unit,
@@ -364,8 +371,15 @@ fun ChatScreen(
                             keyboardController?.hide()
                         },
                         isListening = uiState.isListening,
+                        isSpeaking = uiState.isSpeaking,
                         onMicClick = {
-                            if (uiState.isListening) onStopListening() else onStartListening()
+                            if (uiState.isSpeaking) {
+                                onInterruptAndListen()
+                            } else if (uiState.isListening) {
+                                onStopListening()
+                            } else {
+                                onStartListening()
+                            }
                         }
                     )
                 }
@@ -469,12 +483,19 @@ fun MessageBubble(message: ChatMessage) {
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = message.text,
-                        color = contentColor,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
-                    )
+                    if (isUser) {
+                        Text(
+                            text = message.text,
+                            color = contentColor,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+                    } else {
+                        MarkdownText(
+                            markdown = message.text,
+                            color = contentColor
+                        )
+                    }
                 }
             }
             Text(
@@ -581,11 +602,9 @@ fun StreamingBubble(text: String, onStop: () -> Unit) {
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = text,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                    MarkdownText(
+                        markdown = text,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -654,6 +673,7 @@ fun ChatInputArea(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     isListening: Boolean,
+    isSpeaking: Boolean = false,
     onMicClick: () -> Unit
 ) {
     Row(
@@ -682,17 +702,26 @@ fun ChatInputArea(
             keyboardActions = KeyboardActions(onSend = { if (value.isNotBlank()) onSend() })
         )
 
+        val fabColor = when {
+            value.isBlank() && isListening -> MaterialTheme.colorScheme.error
+            value.isBlank() && isSpeaking -> Color(0xFF2196F3) // Blue to indicate interrupt
+            else -> MaterialTheme.colorScheme.primary
+        }
+
         FloatingActionButton(
             onClick = {
-                android.util.Log.e("ChatInputArea", "FAB clicked, value.isBlank=${value.isBlank()}, isListening=$isListening")
                 if (value.isBlank()) onMicClick() else onSend()
             },
-            containerColor = if (value.isBlank() && isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            containerColor = fabColor,
             shape = CircleShape
         ) {
             Icon(
                 imageVector = if (value.isBlank()) {
-                     if (isListening) Icons.Default.Stop else Icons.Default.Mic
+                     when {
+                         isListening -> Icons.Default.Stop
+                         isSpeaking -> Icons.Default.Mic  // Interrupt TTS and listen
+                         else -> Icons.Default.Mic
+                     }
                 } else {
                      Icons.AutoMirrored.Filled.Send
                 },

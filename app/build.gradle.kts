@@ -148,6 +148,9 @@ dependencies {
     // Vosk
     implementation("com.alphacephei:vosk-android:0.3.47")
     
+    // Markdown rendering
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.14.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
