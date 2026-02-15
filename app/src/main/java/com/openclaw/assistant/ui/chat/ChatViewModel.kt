@@ -54,6 +54,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val apiClient = OpenClawClient()
     private val gatewayClient = GatewayClient.getInstance()
     private val speechManager = SpeechRecognizerManager(application)
+    private val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
 
     // WebSocket streaming state
     private var currentRunId: String? = null
@@ -238,6 +239,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val sessionId = _currentSessionId.value ?: return
 
         _uiState.update { it.copy(isThinking = true, streamingContent = null, isStreaming = false) }
+        toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
 
         viewModelScope.launch {
             try {
@@ -370,7 +372,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e(TAG, "Starting speechManager.startListening(), isListening=true")
                     _uiState.update { it.copy(isListening = true, partialText = "") }
 
-                    speechManager.startListening(null).collect { result ->
+                    speechManager.startListening(null, settings.speechSilenceTimeout).collect { result ->
                         Log.e(TAG, "SpeechResult: $result")
                         when (result) {
                             is SpeechResult.PartialResult -> {
@@ -386,7 +388,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 val isTimeout = result.code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || 
                                               result.code == SpeechRecognizer.ERROR_NO_MATCH
                                 
-                                if (isTimeout && settings.continuousMode && elapsed < 5000) {
+                                if (isTimeout && settings.continuousMode && elapsed < 10000) {
                                     Log.d(TAG, "Speech timeout within 5s window ($elapsed ms), retrying loop...")
                                     // Just fall through to next while iteration
                                     _uiState.update { it.copy(isListening = false) }
@@ -431,11 +433,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var speakingJob: kotlinx.coroutines.Job? = null
 
     private fun speak(text: String) {
+        val cleanText = com.openclaw.assistant.speech.TTSUtils.stripMarkdownForSpeech(text)
         speakingJob = viewModelScope.launch {
             _uiState.update { it.copy(isSpeaking = true) }
 
             val success = if (isTTSReady && tts != null) {
-                speakWithTTS(text)
+                speakWithTTS(cleanText)
             } else {
                 Log.e(TAG, "TTS not ready, skipping speech")
                 false
@@ -550,11 +553,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         sendResumeBroadcast()
     }
 
+    fun interruptAndListen() {
+        tts?.stop()
+        speakingJob?.cancel()
+        speakingJob = null
+        _uiState.update { it.copy(isSpeaking = false) }
+        startListening()
+    }
+
     // REMOVED private fun addMessage because we now flow from DB
 
     override fun onCleared() {
         super.onCleared()
         speechManager.destroy()
+        toneGenerator.release()
         sendResumeBroadcast()
         // Don't shutdown TTS here - Activity owns it
     }

@@ -70,6 +70,10 @@ class HotwordService : Service(), VoskRecognitionListener {
 
     private var isListeningForCommand = false
     private var isSessionActive = false
+    private var audioRetryCount = 0
+    private val MAX_AUDIO_RETRIES = 5
+    private var watchdogJob: Job? = null
+    private val SESSION_TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes
 
     private val controlReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -81,9 +85,11 @@ class HotwordService : Service(), VoskRecognitionListener {
                     speechService?.shutdown()
                     speechService = null
                     isListeningForCommand = false
+                    startWatchdog()
                 }
                 ACTION_RESUME_HOTWORD -> {
                     Log.d(TAG, "Resume signal received")
+                    cancelWatchdog()
                     // Reset both flags to ensure clean state
                     isSessionActive = false
                     isListeningForCommand = false
@@ -144,8 +150,27 @@ class HotwordService : Service(), VoskRecognitionListener {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.w(TAG, "Task removed. Scheduling restart.")
+        val restartIntent = Intent(applicationContext, HotwordService::class.java)
+        val pendingIntent = PendingIntent.getService(
+            applicationContext,
+            1,
+            restartIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        alarmManager.set(
+            android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            android.os.SystemClock.elapsedRealtime() + 3000,
+            pendingIntent
+        )
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        cancelWatchdog()
         try {
             unregisterReceiver(controlReceiver)
         } catch (e: Exception) {}
@@ -167,13 +192,19 @@ class HotwordService : Service(), VoskRecognitionListener {
 
     private fun createNotification(): Notification {
         val pendingIntent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val wakeWordName = settings.getWakeWordDisplayName()
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
-            .setContentText(getString(R.string.notification_content))
+            .setContentText(getString(R.string.notification_content, wakeWordName))
             .setSmallIcon(R.drawable.ic_mic)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
+    }
+
+    private fun updateNotification() {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.notify(NOTIFICATION_ID, createNotification())
     }
 
     private fun initVosk() {
@@ -284,6 +315,7 @@ class HotwordService : Service(), VoskRecognitionListener {
         )
         if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
             Log.e(TAG, "AudioRecord.getMinBufferSize failed: $bufferSize")
+            scheduleAudioRetry()
             return
         }
         val testRecord = try {
@@ -301,9 +333,11 @@ class HotwordService : Service(), VoskRecognitionListener {
         if (testRecord == null || testRecord.state != AudioRecord.STATE_INITIALIZED) {
             Log.e(TAG, "AudioRecord failed to initialize. Mic may be in use or unavailable.")
             testRecord?.release()
+            scheduleAudioRetry()
             return
         }
         testRecord.release()
+        audioRetryCount = 0
 
         try {
             // Get wake words from settings
@@ -318,9 +352,23 @@ class HotwordService : Service(), VoskRecognitionListener {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start hotword listening", e)
             speechService = null
-            scope.launch {
-                delay(5000)
-                if (!isSessionActive) resumeHotwordDetection()
+            scheduleAudioRetry()
+        }
+    }
+
+    private fun scheduleAudioRetry() {
+        if (audioRetryCount >= MAX_AUDIO_RETRIES) {
+            Log.e(TAG, "Max audio retries ($MAX_AUDIO_RETRIES) exceeded. Giving up.")
+            audioRetryCount = 0
+            return
+        }
+        audioRetryCount++
+        val delayMs = (2000L * audioRetryCount).coerceAtMost(15000L)
+        Log.w(TAG, "Scheduling audio retry #$audioRetryCount in ${delayMs}ms")
+        scope.launch {
+            delay(delayMs)
+            if (!isSessionActive) {
+                startHotwordListening()
             }
         }
     }
@@ -367,6 +415,7 @@ class HotwordService : Service(), VoskRecognitionListener {
         if (isListeningForCommand || isSessionActive) return
         isListeningForCommand = true
         isSessionActive = true
+        startWatchdog()
 
         Log.d(TAG, "Hotword Detected! Triggering Assistant Overlay...")
 
@@ -396,11 +445,28 @@ class HotwordService : Service(), VoskRecognitionListener {
     private fun resumeHotwordDetection() {
         if (isSessionActive) return
         isListeningForCommand = false
+        updateNotification()
         scope.launch {
             delay(500)
             if (!isSessionActive && speechService == null) {
                 startHotwordListening()
             }
         }
+    }
+
+    private fun startWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = scope.launch {
+            delay(SESSION_TIMEOUT_MS)
+            Log.w(TAG, "Watchdog timeout! Auto-resuming hotword detection.")
+            isSessionActive = false
+            isListeningForCommand = false
+            resumeHotwordDetection()
+        }
+    }
+
+    private fun cancelWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = null
     }
 }

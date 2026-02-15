@@ -4,8 +4,8 @@
     <string name="notification_channel_name">ホットワードサービス</string>
     <string name="notification_channel_description">常時音声検知サービス</string>
     <string name="notification_title">OpenClaw Assistant</string>
-    <string name="notification_text">「Open Claw」と話しかけて起動</string>
-    <string name="notification_content">「Open Claw」と話しかけてください</string>
+    <string name="notification_text">「%s」と話しかけて起動</string>
+    <string name="notification_content">「%s」と話しかけてください</string>
     <string name="default_session_title_format">音声セッション %s</string>
     <string name="chat_session_title_format">チャット %s</string>
     <string name="settings_title">設定</string>
@@ -82,6 +82,8 @@
     <string name="read_ai_responses">AIの応答を読み上げる</string>
     <string name="continuous_conversation">連続会話</string>
     <string name="auto_start_mic">AI発話後に自動でマイクを起動</string>
+    <string name="speech_silence_timeout">無音タイムアウト</string>
+    <string name="speech_silence_timeout_desc">発話後の待機時間</string>
     <string name="activation_phrase">起動フレーズ</string>
     <string name="custom_wake_word">カスタムウェイクワード</string>
     <string name="custom_wake_word_hint">例: ねえバディ</string>

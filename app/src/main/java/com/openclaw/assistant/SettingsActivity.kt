@@ -67,6 +67,7 @@ fun SettingsScreen(
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
+    var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat()) }
 
     var showAuthToken by remember { mutableStateOf(false) }
     var showWakeWordMenu by remember { mutableStateOf(false) }
@@ -120,6 +121,7 @@ fun SettingsScreen(
                             settings.continuousMode = continuousMode
                             settings.wakeWordPreset = wakeWordPreset
                             settings.customWakeWord = customWakeWord
+                            settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
                             onSave()
                         },
                         enabled = webhookUrl.isNotBlank() && !isTesting
@@ -454,6 +456,33 @@ fun SettingsScreen(
                         }
                         Switch(checked = continuousMode, onCheckedChange = { continuousMode = it })
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+
+                    // Speech silence timeout
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.speech_silence_timeout), style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.speech_silence_timeout_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Text(
+                            text = "%.1fs".format(speechSilenceTimeout / 1000f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Slider(
+                        value = speechSilenceTimeout,
+                        onValueChange = { speechSilenceTimeout = it },
+                        valueRange = 1000f..10000f,
+                        steps = 17,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 

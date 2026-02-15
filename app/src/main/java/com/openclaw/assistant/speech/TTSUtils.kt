@@ -66,4 +66,35 @@ object TTSUtils {
         tts.setSpeechRate(speed)
         tts.setPitch(1.0f)
     }
+
+    /**
+     * Markdownフォーマットを除去してTTS向けのプレーンテキストに変換する
+     */
+    fun stripMarkdownForSpeech(text: String): String {
+        var result = text
+        // コードブロック (```...```) を除去
+        result = result.replace(Regex("```[\\s\\S]*?```"), "")
+        // ヘッダー (# ## ### 等) を除去
+        result = result.replace(Regex("^#{1,6}\\s+", RegexOption.MULTILINE), "")
+        // ボールド/イタリック (**text**, *text*, __text__, _text_)
+        result = result.replace(Regex("\\*{1,3}([^*]+)\\*{1,3}"), "$1")
+        result = result.replace(Regex("_{1,3}([^_]+)_{1,3}"), "$1")
+        // インラインコード (`code`)
+        result = result.replace(Regex("`([^`]+)`"), "$1")
+        // リンク [text](url) → text
+        result = result.replace(Regex("\\[([^\\]]+)]\\([^)]+\\)"), "$1")
+        // 画像 ![alt](url) → alt
+        result = result.replace(Regex("!\\[([^\\]]*)]\\([^)]+\\)"), "$1")
+        // 水平線 (---, ***)
+        result = result.replace(Regex("^[-*_]{3,}$", RegexOption.MULTILINE), "")
+        // ブロッククオート (>)
+        result = result.replace(Regex("^>\\s?", RegexOption.MULTILINE), "")
+        // 箇条書きマーカー (-, *, +)
+        result = result.replace(Regex("^\\s*[-*+]\\s+", RegexOption.MULTILINE), "")
+        // 番号付きリストマーカー (1., 2., 等)
+        result = result.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
+        // 連続改行を整理
+        result = result.replace(Regex("\n{3,}"), "\n\n")
+        return result.trim()
+    }
 }

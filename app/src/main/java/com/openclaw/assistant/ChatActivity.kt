@@ -112,6 +112,11 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     },
                     onStopListening = { viewModel.stopListening() },
                     onStopSpeaking = { viewModel.stopSpeaking() },
+                    onInterruptAndListen = {
+                        if (checkPermission()) {
+                            viewModel.interruptAndListen()
+                        }
+                    },
                     onStopGeneration = { viewModel.stopGeneration() },
                     onBack = { finish() },
                     onSelectSession = { viewModel.selectSession(it) },
@@ -205,6 +210,7 @@ fun ChatScreen(
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onStopSpeaking: () -> Unit,
+    onInterruptAndListen: () -> Unit,
     onStopGeneration: () -> Unit,
     onBack: () -> Unit,
     onSelectSession: (String) -> Unit,
@@ -364,8 +370,15 @@ fun ChatScreen(
                             keyboardController?.hide()
                         },
                         isListening = uiState.isListening,
+                        isSpeaking = uiState.isSpeaking,
                         onMicClick = {
-                            if (uiState.isListening) onStopListening() else onStartListening()
+                            if (uiState.isSpeaking) {
+                                onInterruptAndListen()
+                            } else if (uiState.isListening) {
+                                onStopListening()
+                            } else {
+                                onStartListening()
+                            }
                         }
                     )
                 }
@@ -654,6 +667,7 @@ fun ChatInputArea(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
     isListening: Boolean,
+    isSpeaking: Boolean = false,
     onMicClick: () -> Unit
 ) {
     Row(
@@ -682,12 +696,17 @@ fun ChatInputArea(
             keyboardActions = KeyboardActions(onSend = { if (value.isNotBlank()) onSend() })
         )
 
+        val fabColor = when {
+            value.isBlank() && isListening -> MaterialTheme.colorScheme.error
+            value.isBlank() && isSpeaking -> Color(0xFF2196F3) // Blue to indicate interrupt
+            else -> MaterialTheme.colorScheme.primary
+        }
+
         FloatingActionButton(
             onClick = {
-                android.util.Log.e("ChatInputArea", "FAB clicked, value.isBlank=${value.isBlank()}, isListening=$isListening")
                 if (value.isBlank()) onMicClick() else onSend()
             },
-            containerColor = if (value.isBlank() && isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            containerColor = fabColor,
             shape = CircleShape
         ) {
             Icon(
