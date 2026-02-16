@@ -222,17 +222,44 @@ sealed class PhoneCallUiState {
  */
 class PhoneCallReceiver : android.content.BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val settings = SettingsRepository.getInstance(context)
+        val telnyxClient = TelnyxClient.getInstance()
+
+        // Ensure configured (lazy init for standalone testing)
+        if (!telnyxClient.isConfigured()) {
+            val apiKey = settings.telnyxApiKey
+            val connectionId = settings.telnyxConnectionId
+            val callerId = settings.telnyxCallerId
+            if (apiKey.isNotBlank() && connectionId.isNotBlank()) {
+                telnyxClient.configure(apiKey, connectionId, callerId)
+                Log.d("PhoneCallReceiver", "Auto-configured TelnyxClient from settings")
+            } else {
+                Log.e("PhoneCallReceiver", "Cannot configure Telnyx: Missing credentials")
+                // Cannot show Toast from background receiver easily on Android 12+, but for debug:
+                android.widget.Toast.makeText(context, "Telnyx not configured!", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         when (intent.action) {
-            ACTION_HANGUP -> {
+            PhoneCallService.ACTION_HANGUP -> {
                 CoroutineScope(Dispatchers.IO).launch {
-                    TelnyxClient.getInstance().hangup()
+                    telnyxClient.hangup()
                 }
             }
-            ACTION_MAKE_CALL -> {
-                val phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER)
+            PhoneCallService.ACTION_MAKE_CALL -> {
+                val phoneNumber = intent.getStringExtra(PhoneCallService.EXTRA_PHONE_NUMBER)
                 if (!phoneNumber.isNullOrBlank()) {
+                    android.widget.Toast.makeText(context, "Calling $phoneNumber...", android.widget.Toast.LENGTH_SHORT).show()
                     CoroutineScope(Dispatchers.IO).launch {
-                        TelnyxClient.getInstance().makeCall(phoneNumber)
+                        val result = telnyxClient.makeCall(phoneNumber)
+                        withContext(Dispatchers.Main) {
+                            if (result.isSuccess) {
+                                android.widget.Toast.makeText(context, "Call init success", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(context, "Call failed: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
                 }
             }

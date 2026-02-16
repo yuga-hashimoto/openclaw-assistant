@@ -117,6 +117,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Telnyx Call Receiver -->
+        <receiver
+            android:name=".service.PhoneCallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.openclaw.assistant.MAKE_CALL" />
+                <action android:name="com.openclaw.assistant.HANGUP" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

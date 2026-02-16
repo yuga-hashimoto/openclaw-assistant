@@ -11,6 +11,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.PermIdentity
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +53,7 @@ class SettingsActivity : ComponentActivity() {
                     onBack = { finish() }
                 )
             }
+
         }
     }
 }
@@ -570,6 +577,127 @@ fun SettingsScreen(
                                 Text(stringResource(R.string.custom_wake_word_help), color = Color.Gray, fontSize = 12.sp)
                             }
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // === PHONE CALLING SECTION ===
+            Text(
+                text = "Phone Calling (Telnyx)",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    var telnyxApiKey by remember { mutableStateOf(settings.telnyxApiKey) }
+                    var telnyxConnectionId by remember { mutableStateOf(settings.telnyxConnectionId) }
+                    var telnyxCallerId by remember { mutableStateOf(settings.telnyxCallerId) }
+                    var showApiKey by remember { mutableStateOf(false) }
+
+                    // API Key
+                    OutlinedTextField(
+                        value = telnyxApiKey,
+                        onValueChange = { 
+                            telnyxApiKey = it.trim()
+                            settings.telnyxApiKey = it.trim()
+                        },
+                        label = { Text("Telnyx API Key") },
+                        leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { showApiKey = !showApiKey }) {
+                                Icon(
+                                    if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Connection ID
+                    OutlinedTextField(
+                        value = telnyxConnectionId,
+                        onValueChange = { 
+                            telnyxConnectionId = it.trim()
+                            settings.telnyxConnectionId = it.trim()
+                        },
+                        label = { Text("Connection ID") },
+                        leadingIcon = { Icon(Icons.Default.PermIdentity, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Caller ID (Optional)
+                    OutlinedTextField(
+                        value = telnyxCallerId,
+                        onValueChange = { 
+                            telnyxCallerId = it.trim()
+                            settings.telnyxCallerId = it.trim()
+                        },
+                        label = { Text("Caller ID (Optional)") },
+                        placeholder = { Text("+1234567890") },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    var testDestination by remember { mutableStateOf("") }
+                    
+                    // Test Destination Number
+                    OutlinedTextField(
+                        value = testDestination,
+                        onValueChange = { testDestination = it.trim() },
+                        label = { Text("Test Destination Number (e.g. +123...)") },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Test Call Button
+                    Button(
+                        onClick = { 
+                            if (settings.telnyxApiKey.isBlank() || settings.telnyxConnectionId.isBlank()) {
+                                Toast.makeText(context, "Please save Telnyx credentials first", Toast.LENGTH_SHORT).show()
+                            } else if (testDestination.isBlank()) {
+                                Toast.makeText(context, "Please enter a destination number", Toast.LENGTH_SHORT).show()
+                            } else {
+                                // Start test call
+                                val intent = android.content.Intent(com.openclaw.assistant.service.PhoneCallService.ACTION_MAKE_CALL).apply {
+                                    setPackage(context.packageName)
+                                    putExtra(com.openclaw.assistant.service.PhoneCallService.EXTRA_PHONE_NUMBER, testDestination)
+                                }
+                                context.sendBroadcast(intent)
+                                Toast.makeText(context, "Calling $testDestination...", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isTesting && testDestination.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Test Call")
                     }
                 }
             }
