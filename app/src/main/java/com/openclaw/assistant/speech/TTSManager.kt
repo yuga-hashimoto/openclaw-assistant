@@ -94,7 +94,24 @@ class TTSManager(private val context: Context) {
     }
 
     suspend fun speak(text: String): Boolean {
-        val result = withTimeoutOrNull(90_000L) {
+        // Split long text into chunks to avoid Android TTS 4000 char limit
+        val chunks = TTSUtils.splitTextForTTS(text)
+        Log.d(TAG, "TTS splitting text (${text.length} chars) into ${chunks.size} chunks")
+
+        for ((index, chunk) in chunks.withIndex()) {
+            val success = speakSingleChunk(chunk, index == 0)
+            if (!success) {
+                Log.e(TAG, "TTS chunk $index failed, aborting remaining chunks")
+                return false
+            }
+        }
+        return true
+    }
+
+    private suspend fun speakSingleChunk(text: String, isFirst: Boolean): Boolean {
+        // Scale timeout based on text length (minimum 30s, ~15s per 1000 chars)
+        val timeoutMs = (30_000L + (text.length * 15L)).coerceAtMost(120_000L)
+        val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val utteranceId = UUID.randomUUID().toString()
 
@@ -108,7 +125,8 @@ class TTSManager(private val context: Context) {
                 if (isInitialized) {
                     TTSUtils.applyUserConfig(tts, settings.ttsSpeed)
                     tts?.setOnUtteranceProgressListener(listener)
-                    val speakResult = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                    val queueMode = if (isFirst) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                    val speakResult = tts?.speak(text, queueMode, null, utteranceId)
                     if (speakResult != TextToSpeech.SUCCESS) {
                         Log.e(TAG, "TTS speak failed immediately: $speakResult")
                         if (continuation.isActive) continuation.resume(false)
@@ -130,10 +148,12 @@ class TTSManager(private val context: Context) {
 
                     continuation.invokeOnCancellation { tts?.stop() }
                 } else {
-                    pendingSpeak = {
-                        TTSUtils.applyUserConfig(tts, settings.ttsSpeed)
-                        tts?.setOnUtteranceProgressListener(listener)
-                        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                    if (isFirst) {
+                        pendingSpeak = {
+                            TTSUtils.applyUserConfig(tts, settings.ttsSpeed)
+                            tts?.setOnUtteranceProgressListener(listener)
+                            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                        }
                     }
                     // Wait up to 5s for init
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -146,7 +166,7 @@ class TTSManager(private val context: Context) {
         }
 
         if (result == null) {
-            Log.w(TAG, "TTS timed out after 90s, forcing stop")
+            Log.w(TAG, "TTS chunk timed out, forcing stop")
             tts?.stop()
             return false
         }

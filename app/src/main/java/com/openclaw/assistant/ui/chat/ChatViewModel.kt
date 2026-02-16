@@ -469,25 +469,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         speakingJob = viewModelScope.launch {
             _uiState.update { it.copy(isSpeaking = true) }
 
-            val success = if (isTTSReady && tts != null) {
-                speakWithTTS(cleanText)
-            } else {
-                Log.e(TAG, "TTS not ready, skipping speech")
-                false
-            }
+            try {
+                val success = if (isTTSReady && tts != null) {
+                    speakWithTTS(cleanText)
+                } else {
+                    Log.e(TAG, "TTS not ready, skipping speech")
+                    false
+                }
 
-            _uiState.update { it.copy(isSpeaking = false) }
+                _uiState.update { it.copy(isSpeaking = false) }
 
-            // If it was a voice conversation and continuous mode is on, continue listening
-            if (success && lastInputWasVoice && settings.continuousMode) {
-                // Explicit cleanup and wait for TTS to fully release audio focus
-                speechManager.destroy()
-                kotlinx.coroutines.delay(1000)
+                // If it was a voice conversation and continuous mode is on, continue listening
+                if (success && lastInputWasVoice && settings.continuousMode) {
+                    // Explicit cleanup and wait for TTS to fully release audio focus
+                    speechManager.destroy()
+                    kotlinx.coroutines.delay(1000)
 
-                // Restart listening
-                startListening()
-            } else {
-                // Conversation ended
+                    // Restart listening
+                    startListening()
+                } else {
+                    // Conversation ended
+                    releaseWakeLock()
+                    sendResumeBroadcast()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS speak error", e)
+                _uiState.update { it.copy(isSpeaking = false) }
+                tts?.stop()
                 releaseWakeLock()
                 sendResumeBroadcast()
             }
@@ -495,8 +503,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun speakWithTTS(text: String): Boolean {
+        // Split long text into chunks to avoid Android TTS 4000 char limit
+        val chunks = com.openclaw.assistant.speech.TTSUtils.splitTextForTTS(text)
+        Log.d(TAG, "TTS splitting text (${text.length} chars) into ${chunks.size} chunks")
+
+        for ((index, chunk) in chunks.withIndex()) {
+            val success = speakSingleChunk(chunk, index == 0)
+            if (!success) {
+                Log.e(TAG, "TTS chunk $index failed, aborting remaining chunks")
+                return false
+            }
+        }
+        return true
+    }
+
+    private suspend fun speakSingleChunk(text: String, isFirst: Boolean): Boolean {
         // Use timeout + polling fallback in case TTS callbacks don't fire
-        val callbackResult = withTimeoutOrNull(90_000L) {
+        // Scale timeout based on text length (minimum 30s, ~15s per 1000 chars)
+        val timeoutMs = (30_000L + (text.length * 15L)).coerceAtMost(120_000L)
+        val callbackResult = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val utteranceId = UUID.randomUUID().toString()
 
@@ -536,7 +561,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 tts?.setOnUtteranceProgressListener(listener)
-                val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                val queueMode = if (isFirst) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                val result = tts?.speak(text, queueMode, null, utteranceId)
                 Log.d(TAG, "TTS speak result=$result, text length=${text.length}")
 
                 if (result != TextToSpeech.SUCCESS) {
@@ -570,7 +596,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (callbackResult == null) {
-            Log.w(TAG, "TTS timed out after 90s, forcing stop")
+            Log.w(TAG, "TTS chunk timed out, forcing stop")
             tts?.stop()
             return false
         }

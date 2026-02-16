@@ -518,22 +518,29 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         val cleanText = TTSUtils.stripMarkdownForSpeech(text)
 
         speakingJob = scope.launch {
-            val success = ttsManager.speak(cleanText)
+            try {
+                val success = ttsManager.speak(cleanText)
 
-            // Abandon audio focus after TTS completes
-            abandonAudioFocus()
+                // Abandon audio focus after TTS completes
+                abandonAudioFocus()
 
-            if (success) {
-                // 読み上げ完了後、連続会話モードが有効なら再度リスニング開始
-                if (settings.continuousMode) {
-                    delay(500)
-                    startListening()
+                if (success) {
+                    // 読み上げ完了後、連続会話モードが有効なら再度リスニング開始
+                    if (settings.continuousMode) {
+                        delay(500)
+                        startListening()
+                    } else {
+                        // 連続会話OFFの場合、セッションを終了
+                        currentState.value = AssistantState.IDLE
+                        SessionForegroundService.stop(context)
+                    }
                 } else {
-                    // 連続会話OFFの場合、セッションを終了
-                    currentState.value = AssistantState.IDLE
-                    SessionForegroundService.stop(context)
+                    currentState.value = AssistantState.ERROR
+                    errorMessage.value = context.getString(R.string.error_speech_general)
                 }
-            } else {
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS speak error", e)
+                abandonAudioFocus()
                 currentState.value = AssistantState.ERROR
                 errorMessage.value = context.getString(R.string.error_speech_general)
             }

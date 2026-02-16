@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
@@ -482,19 +483,21 @@ fun MessageBubble(message: ChatMessage) {
                 shape = shape,
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    if (isUser) {
-                        Text(
-                            text = message.text,
-                            color = contentColor,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
-                        )
-                    } else {
-                        MarkdownText(
-                            markdown = message.text,
-                            color = contentColor
-                        )
+                SelectionContainer {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        if (isUser) {
+                            Text(
+                                text = message.text,
+                                color = contentColor,
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp
+                            )
+                        } else {
+                            MarkdownText(
+                                markdown = message.text,
+                                color = contentColor
+                            )
+                        }
                     }
                 }
             }
@@ -601,11 +604,13 @@ fun StreamingBubble(text: String, onStop: () -> Unit) {
                 shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp),
                 modifier = Modifier.widthIn(max = 300.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    MarkdownText(
-                        markdown = text,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                SelectionContainer {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        MarkdownText(
+                            markdown = text,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
