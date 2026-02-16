@@ -123,11 +123,18 @@ class HotwordService : Service(), VoskRecognitionListener {
             }
             if (isVoskCrash) {
                 Log.e(TAG, "Caught uncaught Vosk exception on thread ${thread.name}", throwable)
-                FirebaseCrashlytics.getInstance().recordException(throwable)
-                speechService = null
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    if (!isSessionActive) {
-                        resumeHotwordDetection()
+                if (throwable is UnsatisfiedLinkError || throwable.cause is UnsatisfiedLinkError) {
+                    FirebaseCrashlytics.getInstance().recordException(throwable)
+                    getSharedPreferences("hotword_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("vosk_unsupported", true).apply()
+                    // Don't resume - device doesn't support Vosk
+                } else {
+                    FirebaseCrashlytics.getInstance().recordException(throwable)
+                    speechService = null
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        if (!isSessionActive) {
+                            resumeHotwordDetection()
+                        }
                     }
                 }
             } else {
@@ -212,6 +219,13 @@ class HotwordService : Service(), VoskRecognitionListener {
     }
 
     private fun initVosk() {
+        // Skip if Vosk is known to be unsupported on this device
+        val prefs = getSharedPreferences("hotword_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("vosk_unsupported", false)) {
+            Log.w(TAG, "Vosk is unsupported on this device. Skipping init.")
+            return
+        }
+
         scope.launch(Dispatchers.IO) {
             try {
                 val modelPath = copyAssets()
@@ -223,6 +237,10 @@ class HotwordService : Service(), VoskRecognitionListener {
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
+            } catch (e: UnsatisfiedLinkError) {
+                Log.e(TAG, "Vosk native library not supported on this device", e)
+                FirebaseCrashlytics.getInstance().recordException(e)
+                prefs.edit().putBoolean("vosk_unsupported", true).apply()
             } catch (e: Exception) {
                 Log.e(TAG, "Init error", e)
                 FirebaseCrashlytics.getInstance().recordException(e)

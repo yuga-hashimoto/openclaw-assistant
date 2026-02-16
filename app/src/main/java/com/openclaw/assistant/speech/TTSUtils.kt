@@ -133,7 +133,7 @@ object TTSUtils {
      * Splits long text into chunks that fit within the TTS max input length.
      * Splits naturally at sentence boundaries (period, newline, etc.), keeping each chunk under maxLength.
      */
-    fun splitTextForTTS(text: String, maxLength: Int = 3900): List<String> {
+    fun splitTextForTTS(text: String, maxLength: Int = 1000): List<String> {
         if (text.length <= maxLength) return listOf(text)
 
         val chunks = mutableListOf<String>()

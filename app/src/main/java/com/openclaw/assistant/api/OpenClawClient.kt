@@ -86,7 +86,9 @@ class OpenClawClient {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            FirebaseCrashlytics.getInstance().recordException(e)
+            if (!isTransientNetworkError(e)) {
+                FirebaseCrashlytics.getInstance().recordException(e)
+            }
             Result.failure(e)
         }
     }
@@ -162,6 +164,15 @@ class OpenClawClient {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun isTransientNetworkError(e: Throwable): Boolean {
+        return e is java.net.SocketTimeoutException ||
+                e is java.net.SocketException ||
+                e is java.net.ConnectException ||
+                e is java.io.EOFException ||
+                e is java.net.UnknownHostException ||
+                (e.cause != null && isTransientNetworkError(e.cause!!))
     }
 
     /**

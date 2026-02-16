@@ -60,6 +60,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // WebSocket streaming state
     private var currentRunId: String? = null
     private var thinkingSoundJob: Job? = null
+    private val accumulatedStreamText = StringBuilder()
+    @Volatile private var suppressWsEvents = false
 
     // WakeLock to keep CPU alive during voice interaction with screen off
     private var wakeLock: android.os.PowerManager.WakeLock? = null
@@ -134,13 +136,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Observe chat events (final/error/aborted)
+        // Observe chat events - only accumulate text, no DB save.
+        // Saving is handled by sendViaWebSocket when chat.send RPC returns.
         viewModelScope.launch {
             gatewayClient.chatEvents.collect { event ->
+                if (suppressWsEvents) return@collect
                 when (event.state) {
-                    "final" -> onStreamFinal()
-                    "error" -> onStreamError(event.errorMessage ?: "Chat failed")
-                    "aborted" -> onStreamAborted()
+                    "final" -> onTurnFinal()
+                    "error" -> {
+                        stopThinkingSound()
+                        _uiState.update { it.copy(error = event.errorMessage ?: "Chat failed") }
+                    }
+                    // "aborted" - no action needed, sendViaWebSocket handles it
                 }
             }
         }
@@ -148,8 +155,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Observe agent events (streaming assistant text)
         viewModelScope.launch {
             gatewayClient.agentEvents.collect { event ->
+                if (suppressWsEvents) return@collect
                 if (event.stream == "assistant" && !event.data?.text.isNullOrEmpty()) {
-                    _uiState.update { it.copy(streamingContent = event.data?.text, isStreaming = true) }
+                    val turnText = event.data?.text ?: ""
+                    val accText = accumulatedStreamText.toString()
+                    // If server accumulates across turns, turnText starts with accText.
+                    // If server sends per-turn text, prepend our accumulated text.
+                    val displayText = if (accText.isEmpty() || turnText.startsWith(accText)) {
+                        turnText
+                    } else {
+                        "$accText\n\n$turnText"
+                    }
+                    _uiState.update { it.copy(streamingContent = displayText, isStreaming = true) }
                 }
             }
         }
@@ -268,14 +285,53 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun sendViaWebSocket(sessionId: String, text: String) {
         try {
+            accumulatedStreamText.clear()
+            suppressWsEvents = false
             val sessionKey = gatewayClient.mainSessionKey ?: "main"
+
+            // Keep isThinking=true until chat.send succeeds.
+            // Agent events observer will set isStreaming=true when text arrives.
+
+            // chat.send blocks until the server finishes processing the entire run
             currentRunId = gatewayClient.sendChat(sessionKey, text)
+
+            // RPC succeeded - wait briefly for remaining events to be processed
             stopThinkingSound()
-            _uiState.update { it.copy(isThinking = false, isStreaming = true) }
-            // Response will arrive via chatEvents + agentEvents observers
+            delay(500)
+
+            // Run is complete - save the full response as a single message
+            val finalText = accumulatedStreamText.toString().ifBlank {
+                _uiState.value.streamingContent
+            }
+            accumulatedStreamText.clear()
+            currentRunId = null
+            _uiState.update { it.copy(isThinking = false, isStreaming = false, streamingContent = null) }
+
+            if (!finalText.isNullOrBlank()) {
+                chatRepository.addMessage(sessionId, finalText, isUser = false)
+                afterResponseReceived(finalText)
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
-            sendViaHttp(sessionId, text)
+            // RPC failed or timed out
+            val partialText = accumulatedStreamText.toString().ifBlank {
+                _uiState.value.streamingContent
+            }
+            accumulatedStreamText.clear()
+            currentRunId = null
+
+            if (!partialText.isNullOrBlank()) {
+                // Save whatever was streamed before the failure
+                stopThinkingSound()
+                _uiState.update { it.copy(isThinking = false, isStreaming = false, streamingContent = null) }
+                chatRepository.addMessage(sessionId, partialText, isUser = false)
+            } else {
+                // Nothing streamed - suppress WS events and fall back to HTTP
+                suppressWsEvents = true
+                _uiState.update { it.copy(isStreaming = false, streamingContent = null) }
+                Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
+                sendViaHttp(sessionId, text)
+                suppressWsEvents = false
+            }
         }
     }
 
@@ -303,41 +359,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun onStreamFinal() {
-        val sessionId = _currentSessionId.value ?: return
-        val streamedText = _uiState.value.streamingContent
+    /**
+     * Called on each "final" chat event (per-turn, not per-run).
+     * Only accumulates text - saving is handled by sendViaWebSocket when
+     * the chat.send RPC returns (which signals the entire run is complete).
+     */
+    private fun onTurnFinal() {
+        val currentText = _uiState.value.streamingContent ?: ""
 
-        currentRunId = null
-        stopThinkingSound()
-        _uiState.update { it.copy(isStreaming = false, streamingContent = null) }
-
-        if (!streamedText.isNullOrBlank()) {
-            viewModelScope.launch {
-                chatRepository.addMessage(sessionId, streamedText, isUser = false)
-                afterResponseReceived(streamedText)
+        // Accumulate text across turns (tool call turn + response turn, etc.)
+        if (currentText.isNotBlank()) {
+            val accText = accumulatedStreamText.toString()
+            if (accText.isEmpty() || currentText.startsWith(accText)) {
+                // Server accumulates across turns, or first turn
+                accumulatedStreamText.clear()
+                accumulatedStreamText.append(currentText)
+            } else {
+                // Per-turn text from server - append with separator
+                accumulatedStreamText.append("\n\n").append(currentText)
+                _uiState.update { it.copy(streamingContent = accumulatedStreamText.toString()) }
             }
         }
-    }
 
-    private fun onStreamError(errorMessage: String) {
-        currentRunId = null
         stopThinkingSound()
-        _uiState.update { it.copy(isThinking = false, isStreaming = false, streamingContent = null, error = errorMessage) }
-    }
-
-    private fun onStreamAborted() {
-        val sessionId = _currentSessionId.value
-        val partialText = _uiState.value.streamingContent
-
-        currentRunId = null
-        _uiState.update { it.copy(isStreaming = false, streamingContent = null) }
-
-        // Save partial text if any
-        if (sessionId != null && !partialText.isNullOrBlank()) {
-            viewModelScope.launch {
-                chatRepository.addMessage(sessionId, partialText, isUser = false)
-            }
-        }
     }
 
     private fun afterResponseReceived(responseText: String) {
@@ -503,10 +547,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun speakWithTTS(text: String): Boolean {
-        // Query the engine's actual max input length instead of assuming 4000
-        val maxLen = com.openclaw.assistant.speech.TTSUtils.getMaxInputLength(tts)
+        // Query the engine's actual max input length
+        val engineMaxLen = com.openclaw.assistant.speech.TTSUtils.getMaxInputLength(tts)
+        // Further limit to 1000 for stability and consistent timeout behavior
+        val maxLen = minOf(engineMaxLen, 1000)
         val chunks = com.openclaw.assistant.speech.TTSUtils.splitTextForTTS(text, maxLen)
-        Log.d(TAG, "TTS splitting text (${text.length} chars) into ${chunks.size} chunks (maxLen=$maxLen)")
+        Log.d(TAG, "TTS splitting text (${text.length} chars) into ${chunks.size} chunks (targetMaxLen=$maxLen, engineMaxLen=$engineMaxLen)")
 
         for ((index, chunk) in chunks.withIndex()) {
             val success = speakSingleChunk(chunk, index == 0)
@@ -519,8 +565,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun speakSingleChunk(text: String, isFirst: Boolean): Boolean {
-        // Scale timeout based on text length (minimum 30s, ~15s per 1000 chars)
-        val timeoutMs = (30_000L + (text.length * 15L)).coerceAtMost(120_000L)
+        // Scale timeout based on text length (minimum 30s, ~150ms per character to accommodate Japanese)
+        val timeoutMs = (30_000L + (text.length * 150L)).coerceAtMost(600_000L) // Max 10 mins
         val callbackResult = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val utteranceId = UUID.randomUUID().toString()
