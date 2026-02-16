@@ -109,7 +109,7 @@ class TTSManager(private val context: Context) {
     }
 
     private suspend fun speakSingleChunk(text: String, isFirst: Boolean): Boolean {
-        // Scale timeout based on text length (minimum 30s, ~15s per 1000 chars)
+        // Scale timeout based on text length (minimum 30s, 15ms per char ~15s per 1000 chars)
         val timeoutMs = (30_000L + (text.length * 15L)).coerceAtMost(120_000L)
         val result = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
@@ -148,12 +148,15 @@ class TTSManager(private val context: Context) {
 
                     continuation.invokeOnCancellation { tts?.stop() }
                 } else {
-                    if (isFirst) {
-                        pendingSpeak = {
-                            TTSUtils.applyUserConfig(tts, settings.ttsSpeed)
-                            tts?.setOnUtteranceProgressListener(listener)
-                            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-                        }
+                    // Queue this chunk to be spoken once TTS initialization completes.
+                    // Compose with existing pending to preserve chunk ordering.
+                    val existingPending = pendingSpeak
+                    pendingSpeak = {
+                        existingPending?.invoke()
+                        TTSUtils.applyUserConfig(tts, settings.ttsSpeed)
+                        tts?.setOnUtteranceProgressListener(listener)
+                        val queueMode = if (isFirst) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                        tts?.speak(text, queueMode, null, utteranceId)
                     }
                     // Wait up to 5s for init
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

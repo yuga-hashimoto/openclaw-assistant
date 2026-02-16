@@ -519,7 +519,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun speakSingleChunk(text: String, isFirst: Boolean): Boolean {
         // Use timeout + polling fallback in case TTS callbacks don't fire
-        // Scale timeout based on text length (minimum 30s, ~15s per 1000 chars)
+        // Scale timeout based on text length (minimum 30s, 15ms per char ~15s per 1000 chars)
         val timeoutMs = (30_000L + (text.length * 15L)).coerceAtMost(120_000L)
         val callbackResult = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
