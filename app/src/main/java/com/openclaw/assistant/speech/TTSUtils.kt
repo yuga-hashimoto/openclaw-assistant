@@ -116,6 +116,20 @@ object TTSUtils {
     }
 
     /**
+     * Query the engine's actual max input length, with a safe fallback.
+     */
+    fun getMaxInputLength(tts: TextToSpeech?): Int {
+        return try {
+            val limit = TextToSpeech.getMaxSpeechInputLength()
+            // Use 90% of the reported limit as safety margin
+            (limit * 9 / 10).coerceIn(500, limit)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to query maxSpeechInputLength, using default 3900")
+            3900
+        }
+    }
+
+    /**
      * Splits long text into chunks that fit within the TTS max input length.
      * Splits naturally at sentence boundaries (period, newline, etc.), keeping each chunk under maxLength.
      */
