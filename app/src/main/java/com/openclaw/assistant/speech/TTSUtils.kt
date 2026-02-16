@@ -114,4 +114,66 @@ object TTSUtils {
         
         return result.trim()
     }
+
+    /**
+     * Splits long text into chunks that fit within the TTS max input length.
+     * Splits naturally at sentence boundaries (period, newline, etc.), keeping each chunk under maxLength.
+     */
+    fun splitTextForTTS(text: String, maxLength: Int = 3900): List<String> {
+        if (text.length <= maxLength) return listOf(text)
+
+        val chunks = mutableListOf<String>()
+        var remaining = text
+
+        while (remaining.isNotEmpty()) {
+            if (remaining.length <= maxLength) {
+                chunks.add(remaining)
+                break
+            }
+
+            // Find the last sentence boundary within maxLength
+            val searchRange = remaining.substring(0, maxLength)
+            val splitIndex = findBestSplitPoint(searchRange)
+
+            if (splitIndex > 0) {
+                chunks.add(remaining.substring(0, splitIndex).trim())
+                remaining = remaining.substring(splitIndex).trim()
+            } else {
+                // No boundary found, force split at maxLength
+                chunks.add(remaining.substring(0, maxLength).trim())
+                remaining = remaining.substring(maxLength).trim()
+            }
+        }
+
+        return chunks.filter { it.isNotBlank() }
+    }
+
+    private fun findBestSplitPoint(text: String): Int {
+        // Priority: paragraph break > sentence end > comma > space
+        val paragraphBreak = text.lastIndexOf("\n\n")
+        if (paragraphBreak > text.length / 2) return paragraphBreak + 2
+
+        val sentenceEnders = listOf("。", "．", ". ", "! ", "? ", "！", "？")
+        var bestPos = -1
+        for (ender in sentenceEnders) {
+            val pos = text.lastIndexOf(ender)
+            if (pos > bestPos) bestPos = pos + ender.length
+        }
+        if (bestPos > text.length / 3) return bestPos
+
+        val lineBreak = text.lastIndexOf("\n")
+        if (lineBreak > text.length / 3) return lineBreak + 1
+
+        val commaEnders = listOf("、", "，", ", ")
+        for (ender in commaEnders) {
+            val pos = text.lastIndexOf(ender)
+            if (pos > bestPos) bestPos = pos + ender.length
+        }
+        if (bestPos > text.length / 3) return bestPos
+
+        val space = text.lastIndexOf(" ")
+        if (space > text.length / 3) return space + 1
+
+        return -1
+    }
 }
