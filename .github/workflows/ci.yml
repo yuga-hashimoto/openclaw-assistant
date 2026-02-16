@@ -30,43 +30,43 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
           else
             echo "GOOGLE_SERVICES_JSON secret not found. Generating dummy file..."
-            cat <<EOT > app/google-services.json
-            {
-              "project_info": {
-                "project_number": "000000000000",
-                "project_id": "mock-project-id",
-                "storage_bucket": "mock-project-id.appspot.com"
-              },
-              "client": [
-                {
-                  "client_info": {
-                    "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-                    "android_client_info": {
-                      "package_name": "com.openclaw.assistant"
-                    }
+            cat > app/google-services.json << 'EOT'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "mock-project-id",
+              "storage_bucket": "mock-project-id.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.openclaw.assistant"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "mock-api-key"
+                  }
+                ],
+                "services": {
+                  "analytics_service": {
+                    "status": 1
                   },
-                  "api_key": [
-                    {
-                      "current_key": "mock-api-key"
-                    }
-                  ],
-                  "services": {
-                    "analytics_service": {
-                      "status": 1
-                    },
-                    "appinvite_service": {
-                      "status": 1,
-                      "other_platform_oauth_client": []
-                    },
-                    "ads_service": {
-                      "status": 2
-                    }
+                  "appinvite_service": {
+                    "status": 1,
+                    "other_platform_oauth_client": []
+                  },
+                  "ads_service": {
+                    "status": 2
                   }
                 }
-              ],
-              "configuration_version": "1"
-            }
-            EOT
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOT
           fi
 
       - name: Setup Gradle
