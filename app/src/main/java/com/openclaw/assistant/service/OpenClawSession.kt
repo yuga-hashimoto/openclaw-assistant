@@ -45,9 +45,7 @@ import com.openclaw.assistant.speech.TTSManager
 import com.openclaw.assistant.speech.SpeechResult
 import com.openclaw.assistant.speech.TTSUtils
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
-import kotlin.coroutines.resume
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -87,6 +85,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     private var partialText = mutableStateOf("")
     private var errorMessage = mutableStateOf<String?>(null)
     private var audioLevel = mutableStateOf(0f) // Audio level for visualization
+
+    // WebSocket streaming state (mirrors ChatViewModel pattern)
+    private val accumulatedStreamText = StringBuilder()
 
     override fun onCreate() {
         Log.e(TAG, "Session onCreate start")
@@ -204,6 +205,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             }
         }
         
+        // Start persistent WebSocket event observers (like ChatViewModel)
+        startWsEventObservers()
+
         // 設定チェック
         if (!settings.isConfigured()) {
             currentState.value = AssistantState.ERROR
@@ -384,6 +388,50 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         thinkingSoundJob = null
     }
 
+    private fun startWsEventObservers() {
+        // Observe agent events (streaming assistant text) - persistent observer
+        scope.launch {
+            gatewayClient.agentEvents.collect { event ->
+                if (event.stream == "assistant" && !event.data?.text.isNullOrEmpty()) {
+                    val turnText = event.data?.text ?: ""
+                    val accText = accumulatedStreamText.toString()
+                    val text = if (accText.isEmpty() || turnText.startsWith(accText)) {
+                        turnText
+                    } else {
+                        "$accText\n\n$turnText"
+                    }
+                    displayText.value = text
+                }
+            }
+        }
+
+        // Observe chat events for turn completion - accumulate text across turns
+        scope.launch {
+            gatewayClient.chatEvents.collect { event ->
+                when (event.state) {
+                    "final" -> {
+                        val currentText = displayText.value
+                        if (currentText.isNotBlank()) {
+                            val accText = accumulatedStreamText.toString()
+                            if (accText.isEmpty() || currentText.startsWith(accText)) {
+                                accumulatedStreamText.clear()
+                                accumulatedStreamText.append(currentText)
+                            } else {
+                                accumulatedStreamText.append("\n\n").append(currentText)
+                                displayText.value = accumulatedStreamText.toString()
+                            }
+                        }
+                    }
+                    "error" -> {
+                        stopThinkingSound()
+                        currentState.value = AssistantState.ERROR
+                        errorMessage.value = event.errorMessage ?: "Chat failed"
+                    }
+                }
+            }
+        }
+    }
+
     private fun sendToOpenClaw(message: String) {
         currentState.value = AssistantState.THINKING
         toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
@@ -406,53 +454,45 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     private suspend fun sendViaWebSocket(message: String) {
         try {
+            accumulatedStreamText.clear()
             val agentId = settings.defaultAgentId.takeIf { it.isNotBlank() && it != "main" }
             val sessionKey = if (agentId != null) {
                 "agent:$agentId:main"
             } else {
                 gatewayClient.mainSessionKey ?: "main"
             }
+
+            // sendChat blocks until the server finishes the entire run.
+            // Persistent observers (startWsEventObservers) handle streaming text.
             gatewayClient.sendChat(sessionKey, message)
 
-            // Observe streaming text until chat event signals completion
-            val responseJob = scope.launch {
-                gatewayClient.agentEvents.collect { event ->
-                    if (event.stream == "assistant" && !event.data?.text.isNullOrEmpty()) {
-                        displayText.value = event.data?.text ?: ""
-                    }
-                }
-            }
+            // RPC succeeded - wait briefly for remaining events to be processed
+            stopThinkingSound()
+            delay(500)
 
-            // Wait for chat final/error/aborted event
-            val finalText = suspendCancellableCoroutine<String?> { continuation ->
-                val job = scope.launch {
-                    gatewayClient.chatEvents.collect { event ->
-                        when (event.state) {
-                            "final" -> {
-                                if (continuation.isActive) continuation.resume(displayText.value)
-                            }
-                            "error" -> {
-                                if (continuation.isActive) continuation.resume(null)
-                                stopThinkingSound()
-                                currentState.value = AssistantState.ERROR
-                                errorMessage.value = event.errorMessage ?: "Chat failed"
-                            }
-                            "aborted" -> {
-                                if (continuation.isActive) continuation.resume(displayText.value)
-                            }
-                        }
-                    }
-                }
-                continuation.invokeOnCancellation { job.cancel() }
+            // Collect the accumulated response text
+            val finalText = accumulatedStreamText.toString().ifBlank {
+                displayText.value
             }
-            responseJob.cancel()
+            accumulatedStreamText.clear()
 
             if (!finalText.isNullOrBlank()) {
                 handleResponseReceived(finalText)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
-            sendViaHttp(message)
+            val partialText = accumulatedStreamText.toString().ifBlank {
+                displayText.value
+            }
+            accumulatedStreamText.clear()
+
+            if (!partialText.isNullOrBlank()) {
+                // Save whatever was streamed before the failure
+                stopThinkingSound()
+                handleResponseReceived(partialText)
+            } else {
+                Log.w(TAG, "WebSocket send failed, falling back to HTTP: ${e.message}")
+                sendViaHttp(message)
+            }
         }
     }
 
