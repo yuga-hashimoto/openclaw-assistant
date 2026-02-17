@@ -804,8 +804,8 @@ fun ChatInputArea(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
             ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { if (value.isNotBlank()) onSend() })
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+            // keyboardActions removed to allow newline on Enter
         )
 
         val fabColor = when {
