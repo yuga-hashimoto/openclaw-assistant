@@ -30,6 +30,7 @@ import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
@@ -99,9 +100,12 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         availableEngines = com.openclaw.assistant.speech.TTSEngineUtils.getAvailableEngines(context)
-        // Load existing agent list if gateway is already connected
-        gatewayClient.agentList.value?.let {
-            availableAgents = it.agents
+    }
+
+    // Reactively observe agent list from gateway (updates after connection test)
+    LaunchedEffect(Unit) {
+        gatewayClient.agentList.collect { result ->
+            availableAgents = result?.agents ?: emptyList()
         }
     }
 

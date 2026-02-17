@@ -340,13 +340,12 @@ fun ChatScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 ConnectionIndicator(uiState.connectionState)
                             }
-                            if (uiState.availableAgents.isNotEmpty()) {
-                                AgentSelector(
-                                    agents = uiState.availableAgents,
-                                    selectedAgentId = uiState.selectedAgentId,
-                                    onAgentSelected = onAgentSelected
-                                )
-                            }
+                            AgentSelector(
+                                agents = uiState.availableAgents,
+                                selectedAgentId = uiState.selectedAgentId,
+                                defaultAgentId = uiState.defaultAgentId,
+                                onAgentSelected = onAgentSelected
+                            )
                         }
                     },
                     navigationIcon = {
@@ -615,39 +614,45 @@ fun ConnectionIndicator(state: ConnectionState) {
 fun AgentSelector(
     agents: List<AgentInfo>,
     selectedAgentId: String?,
+    defaultAgentId: String = "main",
     onAgentSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedAgent = agents.find { it.id == selectedAgentId }
-    val displayName = selectedAgent?.name ?: stringResource(R.string.agent_selector)
+    val effectiveId = selectedAgentId ?: defaultAgentId
+    val selectedAgent = agents.find { it.id == effectiveId }
+    val displayName = selectedAgent?.name
+        ?: if (effectiveId.isNotBlank() && effectiveId != "main") effectiveId
+        else stringResource(R.string.agent_selector)
 
     Box {
         AssistChip(
-            onClick = { expanded = true },
+            onClick = { if (agents.isNotEmpty()) expanded = true },
             label = { Text(displayName, fontSize = 11.sp, maxLines = 1) }
         )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            agents.forEach { agent ->
-                DropdownMenuItem(
-                    text = { Text(agent.name) },
-                    onClick = {
-                        onAgentSelected(agent.id)
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        if (agent.id == selectedAgentId) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+        if (agents.isNotEmpty()) {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                agents.forEach { agent ->
+                    DropdownMenuItem(
+                        text = { Text(agent.name) },
+                        onClick = {
+                            onAgentSelected(agent.id)
+                            expanded = false
+                        },
+                        leadingIcon = {
+                            if (agent.id == effectiveId) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }

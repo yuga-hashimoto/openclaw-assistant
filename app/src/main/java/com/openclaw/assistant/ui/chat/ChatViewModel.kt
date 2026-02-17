@@ -45,7 +45,8 @@ data class ChatUiState(
     val streamingContent: String? = null, // Real-time AI response text
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val availableAgents: List<AgentInfo> = emptyList(),
-    val selectedAgentId: String? = null // null = use default from settings
+    val selectedAgentId: String? = null, // null = use default from settings
+    val defaultAgentId: String = "main" // From settings, for display when agent list unavailable
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -181,6 +182,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     availableAgents = agentListResult?.agents ?: emptyList()
                 )}
             }
+        }
+
+        // Initialize default agent from settings
+        val savedAgentId = settings.defaultAgentId
+        if (savedAgentId.isNotBlank() && savedAgentId != "main") {
+            _uiState.update { it.copy(defaultAgentId = savedAgentId, selectedAgentId = savedAgentId) }
         }
 
         // Auto-connect to WebSocket if configured
