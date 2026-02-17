@@ -151,14 +151,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         // Observe chat events - only accumulate text, no DB save.
         // Saving is handled by sendViaWebSocket when chat.send RPC returns.
+        // Skip in HTTP mode to avoid duplicate messages.
         viewModelScope.launch {
             gatewayClient.chatEvents.collect { event ->
-                if (suppressWsEvents) return@collect
+                if (suppressWsEvents || settings.connectionMode == "http") return@collect
                 when (event.state) {
                     "final" -> onTurnFinal()
                     "error" -> {
                         stopThinkingSound()
-                        _uiState.update { it.copy(error = event.errorMessage ?: "Chat failed") }
+                        _uiState.update { it.copy(isThinking = false, error = event.errorMessage ?: "Chat failed") }
                     }
                     // "aborted" - no action needed, sendViaWebSocket handles it
                 }
@@ -166,20 +167,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Observe agent events (streaming assistant text)
+        // Skip in HTTP mode to avoid duplicate messages.
         viewModelScope.launch {
             gatewayClient.agentEvents.collect { event ->
-                if (suppressWsEvents) return@collect
+                if (suppressWsEvents || settings.connectionMode == "http") return@collect
                 if (event.stream == "assistant" && !event.data?.text.isNullOrEmpty()) {
                     val turnText = event.data?.text ?: ""
                     val accText = accumulatedStreamText.toString()
-                    // If server accumulates across turns, turnText starts with accText.
-                    // If server sends per-turn text, prepend our accumulated text.
                     val displayText = if (accText.isEmpty() || turnText.startsWith(accText)) {
                         turnText
                     } else {
                         "$accText\n\n$turnText"
                     }
-                    _uiState.update { it.copy(streamingContent = displayText, isStreaming = true) }
+                    // First streaming text arrives → stop thinking indicator
+                    if (_uiState.value.isThinking) {
+                        stopThinkingSound()
+                    }
+                    _uiState.update { it.copy(streamingContent = displayText, isStreaming = true, isThinking = false) }
                 }
             }
         }
@@ -334,11 +338,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             currentRunId = gatewayClient.sendChat(sessionKey, text)
 
-            // RPC succeeded - wait briefly for remaining events to be processed
-            stopThinkingSound()
+            // RPC succeeded - wait briefly for remaining streaming events
             delay(500)
 
             // Run is complete - save the full response as a single message
+            stopThinkingSound()
             val finalText = accumulatedStreamText.toString().ifBlank {
                 _uiState.value.streamingContent
             }

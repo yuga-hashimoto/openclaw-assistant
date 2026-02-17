@@ -112,7 +112,7 @@ class SettingsRepository(context: Context) {
 
     // Connection Mode: "auto" | "websocket" | "http"
     var connectionMode: String
-        get() = prefs.getString(KEY_CONNECTION_MODE, "auto") ?: "auto"
+        get() = prefs.getString(KEY_CONNECTION_MODE, "http") ?: "http"
         set(value) = prefs.edit().putString(KEY_CONNECTION_MODE, value).apply()
 
     // Gateway Port for WebSocket (default 18789)

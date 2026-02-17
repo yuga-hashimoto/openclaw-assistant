@@ -9,8 +9,6 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
-import android.content.ClipboardManager
-import android.content.ClipData
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -416,77 +414,8 @@ fun ChatScreen(
             Column(modifier = Modifier.padding(paddingValues)) {
                 // Pairing Guidance
                 if (uiState.isPairingRequired && uiState.deviceId != null) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
-                    
-                    // The "one-command" to approve this device
-                    val oneCommand = "openclaw devices approve $(openclaw devices list --json | python3 -c \"import sys, json; print(next((r['Request'] for r in json.load(sys.stdin)['pending'] if r['Device'] == '${uiState.deviceId}'), 'NOT_FOUND'))\")"
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.SmartToy, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = stringResource(R.string.pairing_required_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = stringResource(R.string.pairing_required_desc),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Command display
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                SelectionContainer {
-                                    Text(
-                                        text = oneCommand,
-                                        modifier = Modifier.padding(12.dp),
-                                        style = TextStyle(
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                            fontSize = 12.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Button(
-                                onClick = {
-                                    val clip = ClipData.newPlainText("OpenClaw Approval Command", oneCommand)
-                                    clipboardManager.setPrimaryClip(clip)
-                                    Toast.makeText(context, context.getString(R.string.pairing_command_copied), Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.align(Alignment.End),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError
-                                )
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.pairing_copy_command))
-                            }
-                        }
+                    Box(modifier = Modifier.padding(16.dp)) {
+                        PairingRequiredCard(deviceId = uiState.deviceId!!)
                     }
                 }
 
