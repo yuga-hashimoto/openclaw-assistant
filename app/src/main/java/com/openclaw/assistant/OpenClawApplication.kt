@@ -2,4 +2,11 @@ package com.openclaw.assistant
 
 import android.app.Application
 
-class OpenClawApplication : Application()
+import com.openclaw.assistant.gateway.GatewayClient
+
+class OpenClawApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        GatewayClient.getInstance(this)
+    }
+}

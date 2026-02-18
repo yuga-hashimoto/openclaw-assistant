@@ -33,12 +33,19 @@ class OpenClawClient {
         webhookUrl: String,
         message: String,
         sessionId: String,
-        authToken: String? = null
+        authToken: String? = null,
+        agentId: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
+        if (webhookUrl.isBlank()) {
+            return@withContext Result.failure(
+                IllegalArgumentException("Webhook URL is not configured")
+            )
+        }
+
         try {
             // OpenAI Chat Completions format for /v1/chat/completions
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw/voice-agent")
+                addProperty("model", "openclaw")
                 addProperty("user", sessionId)
                 val messagesArray = JsonArray()
                 val userMessage = JsonObject().apply {
@@ -53,13 +60,17 @@ class OpenClawClient {
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
 
             val requestBuilder = Request.Builder()
-                .url(webhookUrl)  // Use URL as-is
+                .url(webhookUrl)
                 .post(jsonBody)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Accept", "application/json")
 
             if (!authToken.isNullOrBlank()) {
                 requestBuilder.addHeader("Authorization", "Bearer ${authToken.trim()}")
+            }
+
+            if (!agentId.isNullOrBlank()) {
+                requestBuilder.addHeader("x-openclaw-agent-id", agentId)
             }
 
             val request = requestBuilder.build()
@@ -100,6 +111,12 @@ class OpenClawClient {
         webhookUrl: String,
         authToken: String?
     ): Result<Boolean> = withContext(Dispatchers.IO) {
+        if (webhookUrl.isBlank()) {
+            return@withContext Result.failure(
+                IllegalArgumentException("Webhook URL is not configured")
+            )
+        }
+
         try {
             // Try a HEAD request first (lightweight)
             var requestBuilder = Request.Builder()
@@ -128,7 +145,7 @@ class OpenClawClient {
 
             // Fallback: POST with minimal OpenAI format
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw/voice-agent")
+                addProperty("model", "openclaw")
                 addProperty("user", "connection-test")
                 val messagesArray = JsonArray()
                 val testMessage = JsonObject().apply {

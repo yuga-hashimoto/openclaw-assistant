@@ -33,8 +33,8 @@
     <string name="error_start_failed">Start error: %s</string>
     <string name="notification_text">Say \"%s\" to activate</string>
     <string name="settings_title">Settings</string>
-    <string name="webhook_url_label">Webhook URL</string>
-    <string name="webhook_url_hint">https://your-server/v1/chat/completions</string>
+    <string name="webhook_url_label">Server URL</string>
+    <string name="webhook_url_hint">https://your-server</string>
     <string name="auth_token_label">Auth Token (optional)</string>
     <string name="auth_token_hint">Optional</string>
     <string name="session_id_label">Session ID</string>
@@ -126,18 +126,6 @@
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">Custom…</string>
     
-    <!-- Connection Mode -->
-    <string name="connection_mode">Connection Mode</string>
-    <string name="connection_mode_auto">Auto (Recommended)</string>
-    <string name="connection_mode_websocket">WebSocket</string>
-    <string name="connection_mode_http">HTTP</string>
-    <string name="gateway_port">Gateway Port</string>
-    <string name="streaming_response">Streaming response…</string>
-    <string name="stop_generation">Stop</string>
-    <string name="connection_status_connected">Connected (WebSocket)</string>
-    <string name="connection_status_http">HTTP Mode</string>
-    <string name="connection_status_disconnected">Disconnected</string>
-    <string name="connection_status_reconnecting">Reconnecting…</string>
 
     <!-- Permission handling -->
     <string name="mic_permission_rationale_title">Microphone Permission Required</string>
@@ -148,6 +136,12 @@
     <string name="open_settings">Open Settings</string>
     <string name="grant_permission">Grant Permission</string>
     <string name="cancel">Cancel</string>
+
+    <!-- Agent -->
+    <string name="default_agent_label">Default Agent</string>
+    <string name="default_agent_hint">main</string>
+    <string name="agent_selector">Agent</string>
+    <string name="agent_default">Default</string>
 
     <!-- Session Foreground Service -->
     <string name="notification_session_channel_name">Voice Session</string>
@@ -160,4 +154,39 @@
     <string name="delete">Delete</string>
     <string name="menu">Menu</string>
     <string name="back">Back</string>
+
+    <!-- Permission Errors -->
+    <string name="permission_error_title">Agent Selection Unavailable</string>
+    <string name="permission_error_desc">Agent list cannot be loaded without \'operator.read\' scope.</string>
+    <string name="permission_error_action">Tap to see details</string>
+    <string name="action_copy_error">Copy Error</string>
+    <string name="error_copied">Error copied to clipboard</string>
+    <string name="action_open_settings">Open Settings</string>
+
+    <!-- Hotword permission notification -->
+    <string name="notification_mic_permission_title">Microphone permission required</string>
+    <string name="notification_mic_permission_content">Tap to grant permission for wake word detection</string>
+
+    <!-- Hotword mic unavailable notification -->
+    <string name="notification_mic_unavailable_title">Microphone unavailable</string>
+    <string name="notification_mic_unavailable_content">Another app may be using the microphone, or check your device settings</string>
+
+    <!-- Permission status card -->
+    <string name="permissions_missing_title">Permissions Required</string>
+    <string name="permission_record_audio">Microphone</string>
+    <string name="permission_record_audio_desc">Required for voice input and wake word detection</string>
+    <string name="permission_post_notifications">Notifications</string>
+    <string name="permission_post_notifications_desc">Required to show hotword service status</string>
+    <string name="permission_grant">Grant</string>
+
+    <!-- Fix Request -->
+    <string name="fix_request_label">To fix, ask your AI:</string>
+    <string name="fix_request_message">Please grant \'operator.read\' scope to my current API token.</string>
+    <string name="action_ask_ai">Ask AI to Fix</string>
+
+    <!-- Pairing -->
+    <string name="pairing_required_title">Device Pairing Required</string>
+    <string name="pairing_required_desc">Your device is not yet approved by the server. Please run the following command on your server to approve it:</string>
+    <string name="pairing_copy_command">Copy Command</string>
+    <string name="pairing_command_copied">Command copied to clipboard</string>
 </resources>

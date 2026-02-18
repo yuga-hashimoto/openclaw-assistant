@@ -31,3 +31,15 @@ data class AgentStreamData(
     val name: String?,
     val toolCallId: String?
 )
+
+/** Agent info from agents.list RPC. */
+data class AgentInfo(
+    val id: String,
+    val name: String
+)
+
+/** Result of agents.list RPC. */
+data class AgentListResult(
+    val defaultId: String,
+    val agents: List<AgentInfo>
+)

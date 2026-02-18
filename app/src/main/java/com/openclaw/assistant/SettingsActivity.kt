@@ -1,6 +1,7 @@
 package com.openclaw.assistant
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,7 +26,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openclaw.assistant.api.OpenClawClient
 import com.openclaw.assistant.data.SettingsRepository
+import com.openclaw.assistant.gateway.AgentInfo
+import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
@@ -60,8 +65,7 @@ fun SettingsScreen(
 ) {
     var webhookUrl by remember { mutableStateOf(settings.webhookUrl) }
     var authToken by remember { mutableStateOf(settings.authToken) }
-    var connectionMode by remember { mutableStateOf(settings.connectionMode) }
-    var gatewayPort by remember { mutableStateOf(settings.gatewayPort.toString()) }
+    var defaultAgentId by remember { mutableStateOf(settings.defaultAgentId) }
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
@@ -72,7 +76,6 @@ fun SettingsScreen(
 
     var showAuthToken by remember { mutableStateOf(false) }
     var showWakeWordMenu by remember { mutableStateOf(false) }
-    var showConnectionModeMenu by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -81,14 +84,39 @@ fun SettingsScreen(
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<TestResult?>(null) }
 
+    // Agent list from gateway
+    val gatewayClient = remember { GatewayClient.getInstance() }
+    val agentListState by gatewayClient.agentList.collectAsState()
+    val availableAgents = remember(agentListState) { 
+        agentListState?.agents?.distinctBy { it.id } ?: emptyList() 
+    }
+    var isFetchingAgents by remember { mutableStateOf(false) }
+    var showAgentMenu by remember { mutableStateOf(false) }
+
     // TTS Engines
     var ttsEngine by remember { mutableStateOf(settings.ttsEngine) }
     var availableEngines by remember { mutableStateOf<List<com.openclaw.assistant.speech.TTSEngineUtils.EngineInfo>>(emptyList()) }
     var showEngineMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        // Load engines off-main thread ideally, but for now simple
         availableEngines = com.openclaw.assistant.speech.TTSEngineUtils.getAvailableEngines(context)
+    }
+
+    // Reactively observe agent list from gateway (updates after connection test)
+    LaunchedEffect(Unit) {
+        Log.e("SettingsActivity", "LaunchedEffect: Checking connection to fetch agents...")
+        if (gatewayClient.isConnected()) {
+            Log.e("SettingsActivity", "Already connected, fetching agent list...")
+            try {
+                gatewayClient.getAgentList()
+            } catch (e: Exception) {
+                Log.e("SettingsActivity", "Failed to auto-fetch agents: ${e.message}")
+            }
+        }
+    }
+    
+    LaunchedEffect(availableAgents) {
+        Log.e("SettingsActivity", "Available agents updated: ${availableAgents.size} agents. IDs: ${availableAgents.map { it.id }}")
     }
 
     // Wake word options
@@ -114,8 +142,7 @@ fun SettingsScreen(
                         onClick = {
                             settings.webhookUrl = webhookUrl
                             settings.authToken = authToken.trim()
-                            settings.connectionMode = connectionMode
-                            settings.gatewayPort = gatewayPort.toIntOrNull() ?: 18789
+                            settings.defaultAgentId = defaultAgentId
                             settings.ttsEnabled = ttsEnabled
                             settings.ttsSpeed = ttsSpeed
                             settings.ttsEngine = ttsEngine
@@ -198,62 +225,107 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Connection Mode
-                    ExposedDropdownMenuBox(
-                        expanded = showConnectionModeMenu,
-                        onExpandedChange = { showConnectionModeMenu = it }
-                    ) {
-                        val modeLabel = when (connectionMode) {
-                            "websocket" -> stringResource(R.string.connection_mode_websocket)
-                            "http" -> stringResource(R.string.connection_mode_http)
-                            else -> stringResource(R.string.connection_mode_auto)
-                        }
-                        OutlinedTextField(
-                            value = modeLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(R.string.connection_mode)) },
-                            leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showConnectionModeMenu) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = showConnectionModeMenu,
-                            onDismissRequest = { showConnectionModeMenu = false }
-                        ) {
-                            listOf(
-                                "auto" to stringResource(R.string.connection_mode_auto),
-                                "websocket" to stringResource(R.string.connection_mode_websocket),
-                                "http" to stringResource(R.string.connection_mode_http)
-                            ).forEach { (value, label) ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = {
-                                        connectionMode = value
-                                        showConnectionModeMenu = false
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Default Agent
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        if (availableAgents.isNotEmpty()) {
+                            // Dropdown when agents are loaded
+                            ExposedDropdownMenuBox(
+                                expanded = showAgentMenu,
+                                onExpandedChange = { showAgentMenu = it }
+                            ) {
+                                val agentLabel = availableAgents.find { it.id == defaultAgentId }?.name ?: defaultAgentId
+                                OutlinedTextField(
+                                    value = agentLabel,
+                                    onValueChange = { defaultAgentId = it },
+                                    label = { Text(stringResource(R.string.default_agent_label)) },
+                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                    trailingIcon = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isFetchingAgents) {
+                                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                            } else {
+                                                IconButton(onClick = {
+                                                    scope.launch {
+                                                        isFetchingAgents = true
+                                                        if (gatewayClient.isConnected()) {
+                                                            try {
+                                                                gatewayClient.getAgentList()
+                                                            } catch (e: Exception) {
+                                                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                                            }
+                                                        } else {
+                                                            Toast.makeText(context, "Not connected to gateway", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                        isFetchingAgents = false
+                                                    }
+                                                }) {
+                                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh Agents")
+                                                }
+                                            }
+                                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAgentMenu)
+                                        }
                                     },
-                                    leadingIcon = {
-                                        if (connectionMode == value) {
-                                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = showAgentMenu,
+                                    onDismissRequest = { showAgentMenu = false }
+                                ) {
+                                    availableAgents.forEach { agent ->
+                                        DropdownMenuItem(
+                                            text = { Text(agent.name) },
+                                            onClick = {
+                                                defaultAgentId = agent.id
+                                                showAgentMenu = false
+                                            },
+                                            leadingIcon = {
+                                                if (defaultAgentId == agent.id) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Text field fallback before connection or if no agents found
+                            OutlinedTextField(
+                                value = defaultAgentId,
+                                onValueChange = { defaultAgentId = it },
+                                label = { Text(stringResource(R.string.default_agent_label)) },
+                                placeholder = { Text(stringResource(R.string.default_agent_hint)) },
+                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                trailingIcon = {
+                                    if (isFetchingAgents) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        IconButton(onClick = {
+                                            scope.launch {
+                                                isFetchingAgents = true
+                                                if (gatewayClient.isConnected()) {
+                                                    try {
+                                                        gatewayClient.getAgentList()
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                } else {
+                                                    Toast.makeText(context, "Not connected to gateway", Toast.LENGTH_SHORT).show()
+                                                }
+                                                isFetchingAgents = false
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Agents")
                                         }
                                     }
-                                )
-                            }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
                         }
-                    }
-
-                    // Gateway Port (only for websocket/auto modes)
-                    if (connectionMode != "http") {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = gatewayPort,
-                            onValueChange = { gatewayPort = it.filter { c -> c.isDigit() } },
-                            label = { Text(stringResource(R.string.gateway_port)) },
-                            leadingIcon = { Icon(Icons.Default.Router, contentDescription = null) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -266,13 +338,59 @@ fun SettingsScreen(
                                 try {
                                     isTesting = true
                                     testResult = null
-                                    val result = apiClient.testConnection(webhookUrl, authToken.trim())
+                                    // Compute chat completions URL for testing
+                                    val testUrl = webhookUrl.trimEnd('/').let { url ->
+                                        if (url.contains("/v1/")) url else "$url/v1/chat/completions"
+                                    }
+                                    val result = apiClient.testConnection(testUrl, authToken.trim())
                                     result.fold(
                                         onSuccess = {
                                             testResult = TestResult(success = true, message = context.getString(R.string.connected))
                                             settings.webhookUrl = webhookUrl
                                             settings.authToken = authToken.trim()
                                             settings.isVerified = true
+
+                                            // Fetch agent list via WebSocket
+                                            scope.launch {
+                                                isFetchingAgents = true
+                                                try {
+                                                    val baseUrl = settings.getBaseUrl()
+                                                    val parsedUrl = java.net.URL(baseUrl)
+                                                    val host = parsedUrl.host
+                                                    val useTls = parsedUrl.protocol == "https"
+                                                    val port = if (useTls) {
+                                                        if (parsedUrl.port > 0) parsedUrl.port else 443
+                                                    } else {
+                                                        if (settings.gatewayPort > 0) settings.gatewayPort else if (parsedUrl.port > 0) parsedUrl.port else 18789
+                                                    }
+                                                    val token = authToken.takeIf { t -> t.isNotBlank() }
+
+                                                    if (!gatewayClient.isConnected()) {
+                                                        gatewayClient.connect(host, port, token, useTls = useTls)
+                                                        // Wait for connection
+                                                        for (i in 1..20) {
+                                                            delay(250)
+                                                            if (gatewayClient.isConnected()) break
+                                                        }
+                                                    }
+
+                                                    if (gatewayClient.isConnected()) {
+                                                        Log.e("SettingsActivity", "Connection successful, fetching agent list...")
+                                                        try {
+                                                            val agentResult = gatewayClient.getAgentList()
+                                                            Log.e("SettingsActivity", "Agent list fetched: ${agentResult?.agents?.size ?: 0} agents")
+                                                        } catch (e: Exception) {
+                                                            Log.e("SettingsActivity", "Failed to fetch agent list: ${e.message}")
+                                                            // Show toast for this error specifically since it's part of the test
+                                                            Toast.makeText(context, "Connected, but failed to list agents: ${e.message}", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.w("SettingsActivity", "Failed to fetch agent list: ${e.message}")
+                                                } finally {
+                                                    isFetchingAgents = false
+                                                }
+                                            }
                                         },
                                         onFailure = {
                                             testResult = TestResult(success = false, message = context.getString(R.string.failed, it.message ?: ""))

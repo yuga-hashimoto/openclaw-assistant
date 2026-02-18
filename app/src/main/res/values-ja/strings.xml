@@ -9,8 +9,8 @@
     <string name="default_session_title_format">音声セッション %s</string>
     <string name="chat_session_title_format">チャット %s</string>
     <string name="settings_title">設定</string>
-    <string name="webhook_url_label">Webhook URL</string>
-    <string name="webhook_url_hint">https://your-server/v1/chat/completions</string>
+    <string name="webhook_url_label">サーバーURL</string>
+    <string name="webhook_url_hint">https://your-server</string>
     <string name="auth_token_label">認証トークン（任意）</string>
     <string name="auth_token_hint">任意</string>
     <string name="session_id_label">セッションID</string>
@@ -102,19 +102,6 @@
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">カスタム…</string>
 
-    <!-- Connection Mode -->
-    <string name="connection_mode">接続モード</string>
-    <string name="connection_mode_auto">自動（推奨）</string>
-    <string name="connection_mode_websocket">WebSocket</string>
-    <string name="connection_mode_http">HTTP</string>
-    <string name="gateway_port">ゲートウェイポート</string>
-    <string name="streaming_response">応答をストリーミング中…</string>
-    <string name="stop_generation">停止</string>
-    <string name="connection_status_connected">接続中 (WebSocket)</string>
-    <string name="connection_status_http">HTTPモード</string>
-    <string name="connection_status_disconnected">未接続</string>
-    <string name="connection_status_reconnecting">再接続中…</string>
-
     <!-- Permission handling -->
     <string name="mic_permission_rationale_title">マイクの権限が必要です</string>
     <string name="mic_permission_rationale_message">ウェイクワード検知には、音声コマンドを聞き取るためにマイクへのアクセスが必要です。この権限がないと、ウェイクワード検知は動作しません。\n\n次の画面でマイクの権限を許可してください。</string>
@@ -125,10 +112,19 @@
     <string name="grant_permission">権限を許可</string>
     <string name="cancel">キャンセル</string>
 
+    <!-- Agent -->
+    <string name="default_agent_label">デフォルトエージェント</string>
+    <string name="default_agent_hint">main</string>
+    <string name="agent_selector">エージェント</string>
+
     <!-- Session Foreground Service -->
     <string name="notification_session_channel_name">音声セッション</string>
     <string name="notification_session_title">会話中</string>
     <string name="notification_session_content">音声セッションがアクティブです</string>
+
+    <!-- Hotword mic unavailable notification -->
+    <string name="notification_mic_unavailable_title">マイクを利用できません</string>
+    <string name="notification_mic_unavailable_content">他のアプリがマイクを使用中か、デバイスの設定を確認してください</string>
 
     <!-- Chat UI -->
     <string name="conversations_title">会話</string>
@@ -139,4 +135,26 @@
 
     <!-- Error Messages -->
     <string name="error_speech_input_timeout">音声入力がありませんでした</string>
+
+    <!-- Permission Errors -->
+    <string name="permission_error_title">エージェント選択が利用できません</string>
+    <string name="permission_error_desc">\'operator.read\'権限がないため、エージェントリストを読み込めません。</string>
+    <string name="permission_error_action">タップして詳細を確認</string>
+    <string name="action_copy_error">エラーをコピー</string>
+    <string name="error_copied">エラーをクリップボードにコピーしました</string>
+    <string name="action_open_settings">設定を開く</string>
+
+    <!-- Fix Request -->
+    <string name="fix_request_label">修正するには、AIにこう頼んでください:</string>
+    <string name="fix_request_message">現在のAPIトークンに \'operator.read\' 権限を付与してください。</string>
+    <string name="action_ask_ai">AIに修正を依頼</string>
+
+    <!-- Agent -->
+    <string name="agent_default">デフォルト</string>
+
+    <!-- Pairing -->
+    <string name="pairing_required_title">デバイスのペアリングが必要です</string>
+    <string name="pairing_required_desc">このデバイスはまだサーバーで承認されていません。サーバーで以下のコマンドを実行して承認してください：</string>
+    <string name="pairing_copy_command">コマンドをコピー</string>
+    <string name="pairing_command_copied">コマンドをクリップボードにコピーしました</string>
 </resources>
