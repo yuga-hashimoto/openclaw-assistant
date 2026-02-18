@@ -516,6 +516,19 @@ class HotwordService : Service(), VoskRecognitionListener {
 
     private fun onHotwordDetected() {
         if (isListeningForCommand || isSessionActive) return
+
+        // Check RECORD_AUDIO permission on Android 14+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.RECORD_AUDIO
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e(TAG, "RECORD_AUDIO permission not granted")
+                FirebaseCrashlytics.getInstance().log("RECORD_AUDIO permission not granted")
+                return
+            }
+        }
+
         isListeningForCommand = true
         isSessionActive = true
         startWatchdog()
