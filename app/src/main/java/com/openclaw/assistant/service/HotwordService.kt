@@ -163,15 +163,23 @@ class HotwordService : Service(), VoskRecognitionListener {
             return START_NOT_STICKY
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                createNotification(),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, createNotification())
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    createNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, createNotification())
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Failed to start foreground service", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
+            stopSelf()
+            return START_NOT_STICKY
         }
+
         initVosk()
         return START_STICKY
     }
