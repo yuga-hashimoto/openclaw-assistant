@@ -146,7 +146,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
     // Vosk
-    implementation("com.alphacephei:vosk-android:0.3.47")
+    implementation("com.alphacephei:vosk-android:0.3.75")
 
     // Tink (Crypto)
     implementation("com.google.crypto.tink:tink-android:1.10.0")

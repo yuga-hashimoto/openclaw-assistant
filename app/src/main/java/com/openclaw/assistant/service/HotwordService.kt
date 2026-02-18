@@ -286,11 +286,27 @@ class HotwordService : Service(), VoskRecognitionListener {
     }
 
     private fun initVosk() {
-        // Skip if Vosk is known to be unsupported on this device
         val prefs = getSharedPreferences("hotword_prefs", Context.MODE_PRIVATE)
+
+        // Clear vosk_unsupported flag when the app is updated, so the new Vosk
+        // native libraries get a chance to load on devices that previously failed.
+        val currentVersion = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0).versionCode
+            }
+        } catch (e: Exception) { 1 }
+        val unsupportedSinceVersion = prefs.getInt("vosk_unsupported_version", 0)
         if (prefs.getBoolean("vosk_unsupported", false)) {
-            Log.w(TAG, "Vosk is unsupported on this device. Skipping init.")
-            return
+            if (unsupportedSinceVersion < currentVersion) {
+                Log.d(TAG, "App updated ($unsupportedSinceVersion -> $currentVersion). Retrying Vosk init.")
+                prefs.edit().remove("vosk_unsupported").remove("vosk_unsupported_version").apply()
+            } else {
+                Log.w(TAG, "Vosk is unsupported on this device. Skipping init.")
+                return
+            }
         }
 
         scope.launch(Dispatchers.IO) {
@@ -307,7 +323,10 @@ class HotwordService : Service(), VoskRecognitionListener {
             } catch (e: UnsatisfiedLinkError) {
                 Log.e(TAG, "Vosk native library not supported on this device", e)
                 FirebaseCrashlytics.getInstance().recordException(e)
-                prefs.edit().putBoolean("vosk_unsupported", true).apply()
+                prefs.edit()
+                    .putBoolean("vosk_unsupported", true)
+                    .putInt("vosk_unsupported_version", currentVersion)
+                    .apply()
             } catch (e: Exception) {
                 Log.e(TAG, "Init error", e)
                 FirebaseCrashlytics.getInstance().recordException(e)
