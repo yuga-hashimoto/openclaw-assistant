@@ -69,6 +69,7 @@ fun SettingsScreen(
 ) {
     var webhookUrl by remember { mutableStateOf(settings.webhookUrl) }
     var authToken by remember { mutableStateOf(settings.authToken) }
+    var gatewayWebSocketUrl by remember { mutableStateOf(settings.gatewayWebSocketUrl) }
     var defaultAgentId by remember { mutableStateOf(settings.defaultAgentId) }
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
@@ -168,6 +169,7 @@ fun SettingsScreen(
                         onClick = {
                             settings.webhookUrl = webhookUrl
                             settings.authToken = authToken.trim()
+                            settings.gatewayWebSocketUrl = gatewayWebSocketUrl.trim()
                             settings.defaultAgentId = defaultAgentId
                             settings.ttsEnabled = ttsEnabled
                             settings.ttsSpeed = ttsSpeed
@@ -227,6 +229,26 @@ fun SettingsScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         isError = webhookUrl.isBlank()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Gateway WebSocket URL
+                    OutlinedTextField(
+                        value = gatewayWebSocketUrl,
+                        onValueChange = {
+                            gatewayWebSocketUrl = it.trim()
+                            testResult = null
+                        },
+                        label = { Text(stringResource(R.string.gateway_websocket_url_label)) },
+                        placeholder = { Text(stringResource(R.string.gateway_websocket_url_hint)) },
+                        leadingIcon = { Icon(Icons.Default.CloudQueue, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        supportingText = {
+                            Text(stringResource(R.string.gateway_websocket_url_desc), fontSize = 12.sp)
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -384,19 +406,11 @@ fun SettingsScreen(
                                             scope.launch {
                                                 isFetchingAgents = true
                                                 try {
-                                                    val baseUrl = settings.getBaseUrl()
-                                                    val parsedUrl = java.net.URL(baseUrl)
-                                                    val host = parsedUrl.host
-                                                    val useTls = parsedUrl.protocol == "https"
-                                                    val port = if (useTls) {
-                                                        if (parsedUrl.port > 0) parsedUrl.port else 443
-                                                    } else {
-                                                        if (settings.gatewayPort > 0) settings.gatewayPort else if (parsedUrl.port > 0) parsedUrl.port else 18789
-                                                    }
+                                                    val wsUrl = settings.getEffectiveGatewayUrl()
                                                     val token = authToken.takeIf { t -> t.isNotBlank() }
 
                                                     if (!gatewayClient.isConnected()) {
-                                                        gatewayClient.connect(host, port, token, useTls = useTls)
+                                                        gatewayClient.connect(wsUrl, token)
                                                         // Wait for connection
                                                         for (i in 1..20) {
                                                             delay(250)

@@ -302,24 +302,15 @@ fun MainScreen(
     // Auto-connect WS on launch for agent list and pairing detection
     LaunchedEffect(Unit) {
         if (settings.isConfigured()) {
-             val baseUrl = settings.getBaseUrl()
-             if (baseUrl.isNotBlank()) {
-                 try {
-                     val url = java.net.URL(baseUrl)
-                     val host = url.host
-                     val useTls = url.protocol == "https"
-                     val port = if (useTls) {
-                         if (url.port > 0) url.port else 443
-                     } else {
-                         if (settings.gatewayPort > 0) settings.gatewayPort else
-                             if (url.port > 0) url.port else 18789
-                     }
-                     val token = settings.authToken.takeIf { it.isNotBlank() }
-                     gatewayClient.connect(host, port, token, useTls = useTls)
-                 } catch (e: Exception) {
-                     // Ignore parse errors here
-                 }
-             }
+            try {
+                val wsUrl = settings.getEffectiveGatewayUrl()
+                if (wsUrl.isNotBlank()) {
+                    val token = settings.authToken.takeIf { it.isNotBlank() }
+                    gatewayClient.connect(wsUrl, token)
+                }
+            } catch (e: Exception) {
+                // Ignore errors here
+            }
         }
     }
 

@@ -102,10 +102,8 @@ class GatewayClient(context: android.content.Context) {
 
     // --- Internal connection state ---
 
-    private var desiredHost: String? = null
-    private var desiredPort: Int = 18789
+    private var desiredUrl: String? = null
     private var desiredToken: String? = null
-    private var desiredUseTls: Boolean = false
 
     private var runLoopJob: Job? = null
     private var currentSocket: WebSocket? = null
@@ -123,19 +121,29 @@ class GatewayClient(context: android.content.Context) {
 
     // --- Public API ---
 
-    fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false) {
-        desiredHost = host
-        desiredPort = port
+    /**
+     * Connect to the gateway using a full WebSocket URL (ws:// or wss://).
+     */
+    fun connect(url: String, token: String? = null) {
+        if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
+            throw IllegalArgumentException("Invalid WebSocket URL: $url")
+        }
+        desiredUrl = url
         desiredToken = token
-        desiredUseTls = useTls
 
         if (runLoopJob == null) {
             runLoopJob = scope.launch { runLoop() }
         }
     }
 
+    /** Legacy connect flow for backward compatibility. */
+    fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false) {
+        val scheme = if (useTls) "wss" else "ws"
+        connect("$scheme://$host:$port", token)
+    }
+
     fun disconnect() {
-        desiredHost = null
+        desiredUrl = null
         currentSocket?.close(1000, "bye")
         scope.launch {
             runLoopJob?.cancelAndJoin()
@@ -241,8 +249,8 @@ class GatewayClient(context: android.content.Context) {
     private suspend fun runLoop() {
         var attempt = 0
         while (scope.isActive) {
-            val host = desiredHost
-            if (host == null) {
+            val url = desiredUrl
+            if (url == null) {
                 delay(250)
                 continue
             }
@@ -253,7 +261,7 @@ class GatewayClient(context: android.content.Context) {
                 else
                     ConnectionState.RECONNECTING
 
-                connectOnce(host, desiredPort, desiredToken, desiredUseTls)
+                connectOnce(url, desiredToken)
                 attempt = 0
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -270,14 +278,12 @@ class GatewayClient(context: android.content.Context) {
         }
     }
 
-    private suspend fun connectOnce(host: String, port: Int, token: String?, useTls: Boolean) {
+    private suspend fun connectOnce(url: String, token: String?) {
         isClosed.set(false)
         connectDeferred = CompletableDeferred()
         closeDeferred = CompletableDeferred()
         connectNonceDeferred = CompletableDeferred()
 
-        val scheme = if (useTls) "wss" else "ws"
-        val url = "$scheme://$host:$port"
         Log.e(TAG, "Connecting to $url")
 
         val request = Request.Builder().url(url).build()

@@ -141,6 +141,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_DEFAULT_AGENT_ID, "main") ?: "main"
         set(value) = prefs.edit().putString(KEY_DEFAULT_AGENT_ID, value).apply()
 
+    // Gateway WebSocket URL (optional, overrides derived URL)
+    var gatewayWebSocketUrl: String
+        get() = prefs.getString(KEY_GATEWAY_WEBSOCKET_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_GATEWAY_WEBSOCKET_URL, value).apply()
+
     /**
      * Get the chat completions URL.
      * Supports both base URL (http://server) and full path (http://server/v1/chat/completions).
@@ -160,6 +165,33 @@ class SettingsRepository(context: Context) {
         val url = webhookUrl.trimEnd('/')
         val idx = url.indexOf("/v1/")
         return if (idx > 0) url.substring(0, idx) else url
+    }
+
+    /**
+     * Get the effective WebSocket URL for the gateway.
+     * Returns explicitly set gatewayWebSocketUrl if present, otherwise
+     * derives it from webhookUrl.
+     */
+    fun getEffectiveGatewayUrl(): String {
+        val wsUrl = gatewayWebSocketUrl.trim()
+        if (wsUrl.isNotBlank()) return wsUrl
+
+        val baseUrl = getBaseUrl()
+        if (baseUrl.isBlank()) return ""
+
+        return try {
+            val uri = java.net.URI(baseUrl)
+            val host = uri.host
+            val scheme = if (uri.scheme == "https") "wss" else "ws"
+            val port = if (uri.scheme == "https") {
+                if (uri.port > 0) uri.port else 443
+            } else {
+                if (gatewayPort > 0) gatewayPort else if (uri.port > 0) uri.port else 18789
+            }
+            "$scheme://$host:$port"
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     // Check if configured
@@ -192,6 +224,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_TTS_ENGINE = "tts_engine"
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_DEFAULT_AGENT_ID = "default_agent_id"
+        private const val KEY_GATEWAY_WEBSOCKET_URL = "gateway_websocket_url"
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
         private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
         private const val KEY_SPEECH_LANGUAGE = "speech_language"
