@@ -369,7 +369,7 @@ fun MainScreen(
 
             // Show pairing required banner
             if (isPairingRequired && deviceId != null) {
-                PairingRequiredCard(deviceId = deviceId!!)
+                PairingRequiredCard(deviceId = deviceId)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 

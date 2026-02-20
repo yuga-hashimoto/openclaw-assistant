@@ -962,28 +962,31 @@ private suspend fun runReliabilityCheck(context: android.content.Context): Strin
     // 1. TTS Test
     details.append("[1/3] TTS Engine: ")
     val ttsResult = kotlinx.coroutines.CompletableDeferred<Int>()
-    var testTts: TextToSpeech? = null
-    testTts = TextToSpeech(context) { status ->
+    val testTts = TextToSpeech(context) { status ->
         ttsResult.complete(status)
     }
     val status = ttsResult.await()
     if (status == TextToSpeech.SUCCESS) {
-        val engine = testTts?.defaultEngine ?: "unknown"
+        val engine = testTts.defaultEngine ?: "unknown"
         details.append("OK ($engine)\n")
-        testTts?.speak("Diagnostic check", TextToSpeech.QUEUE_FLUSH, null, null)
+        testTts.speak("Diagnostic check", TextToSpeech.QUEUE_FLUSH, null, null)
         delay(1000)
     } else {
         details.append("FAILED (status $status)\n")
     }
-    testTts?.shutdown()
+    testTts.shutdown()
 
     // 2. Mic Test
     details.append("[2/3] Microphone: ")
-    val bufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-    if (bufferSize > 0) {
-        try {
-            val record = AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize.coerceAtLeast(3200))
-            if (record.state == AudioRecord.STATE_INITIALIZED) {
+    if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO)
+        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        details.append("FAILED (Permission denied)\n")
+    } else {
+        val bufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        if (bufferSize > 0) {
+            try {
+                val record = AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize.coerceAtLeast(3200))
+                if (record.state == AudioRecord.STATE_INITIALIZED) {
                 record.startRecording()
                 val buf = ShortArray(1600)
                 val read = record.read(buf, 0, buf.size)
@@ -997,11 +1000,12 @@ private suspend fun runReliabilityCheck(context: android.content.Context): Strin
                 details.append("FAILED (state ${record.state})\n")
             }
             record.release()
-        } catch (e: Exception) {
-            details.append("ERROR: ${e.message}\n")
+            } catch (e: Exception) {
+                details.append("ERROR: ${e.message}\n")
+            }
+        } else {
+            details.append("FAILED (bad buffer size $bufferSize)\n")
         }
-    } else {
-        details.append("FAILED (bad buffer size $bufferSize)\n")
     }
 
     // 3. Vosk Test
