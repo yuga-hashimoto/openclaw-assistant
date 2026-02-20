@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import com.openclaw.assistant.data.SettingsRepository
+import com.openclaw.assistant.speech.SpeechRecognizerManager
+import com.openclaw.assistant.speech.SpeechResult
+import com.openclaw.assistant.speech.TTSManager
+import com.openclaw.assistant.utils.SystemInfoProvider
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 
 /**
@@ -31,6 +38,13 @@ data class DiagnosticSuggestion(
     val isSystemSetting: Boolean = false
 )
 
+enum class ReliabilityStep {
+    TTS_INIT,
+    TTS_SPEAK,
+    STT_START,
+    STT_COMPLETE
+}
+
 /**
  * 音声機能の診断を行うクラス
  */
@@ -52,6 +66,98 @@ class VoiceDiagnostics(private val context: Context) {
             missingLanguages = ttsResult.missingLangs,
             suggestions = suggestions
         )
+    }
+
+    suspend fun runReliabilityCheck(
+        tts: TTSManager,
+        speech: SpeechRecognizerManager,
+        onProgress: (ReliabilityStep, String) -> Unit
+    ): Boolean {
+        // 1. TTS Init
+        onProgress(ReliabilityStep.TTS_INIT, "Checking TTS initialization...")
+        if (!tts.isReady()) {
+            onProgress(ReliabilityStep.TTS_INIT, "TTS not ready. Attempting re-init...")
+            tts.reinitialize()
+            delay(2000)
+            if (!tts.isReady()) {
+                onProgress(ReliabilityStep.TTS_INIT, "TTS failed to initialize.")
+                return false
+            }
+        }
+        onProgress(ReliabilityStep.TTS_INIT, "TTS Ready.")
+
+        // 2. TTS Speak
+        onProgress(ReliabilityStep.TTS_SPEAK, "Testing voice output...")
+        val speakSuccess = tts.speak("Voice reliability test. If you hear this, TTS is working correctly.")
+        if (!speakSuccess) {
+            onProgress(ReliabilityStep.TTS_SPEAK, "TTS playback failed or timed out.")
+            return false
+        }
+        onProgress(ReliabilityStep.TTS_SPEAK, "TTS playback complete.")
+
+        // 3. STT Start
+        onProgress(ReliabilityStep.STT_START, "Testing speech recognition...")
+        var sttSuccess = false
+        try {
+            withTimeoutOrNull(8000) {
+                speech.startListening().collect { result ->
+                    when (result) {
+                        is SpeechResult.Ready -> {
+                            onProgress(ReliabilityStep.STT_START, "STT Ready. Listener is active.")
+                            sttSuccess = true
+                            // Stop after reaching Ready for this basic check
+                            throw kotlinx.coroutines.CancellationException("STT_READY")
+                        }
+                        is SpeechResult.Error -> {
+                            onProgress(ReliabilityStep.STT_START, "STT Error: ${result.message}")
+                            sttSuccess = false
+                            throw kotlinx.coroutines.CancellationException("STT_ERROR")
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            if (e.message != "STT_READY" && e.message != "STT_ERROR") throw e
+        }
+
+        if (!sttSuccess) {
+            onProgress(ReliabilityStep.STT_START, "STT failed to initialize or reach READY state.")
+            return false
+        }
+
+        // 4. Cleanup
+        onProgress(ReliabilityStep.STT_COMPLETE, "Verifying state cleanup...")
+        speech.destroy()
+        delay(500)
+        onProgress(ReliabilityStep.STT_COMPLETE, "Reliability check finished successfully.")
+
+        return true
+    }
+
+    fun generateDiagnosticReport(settings: SettingsRepository): String {
+        val sysInfo = SystemInfoProvider.getSystemInfoReport(context, settings)
+        val sttManager = SpeechRecognizerManager(context)
+        val sttProvider = sttManager.getRecognitionServiceName()
+
+        return """
+            # Voice Reliability Diagnostic Report
+
+            ${sysInfo}
+
+            **Voice Subsystem Details**
+            - STT Provider: $sttProvider
+            - STT Available: ${SpeechRecognizer.isRecognitionAvailable(context)}
+            - TTS Engine Setting: ${settings.ttsEngine.ifEmpty { "Auto" }}
+            - Speech Language: ${settings.speechLanguage.ifEmpty { "System Default" }}
+            - Continuous Mode: ${settings.continuousMode}
+            - Silence Timeout: ${settings.speechSilenceTimeout}ms
+            - Thinking Sound: ${settings.thinkingSoundEnabled}
+
+            **Diagnostic Log**
+            - Device Time: ${java.util.Date()}
+            - Report Version: 1.0
+        """.trimIndent()
     }
 
     private data class ComponentCheckResult(
