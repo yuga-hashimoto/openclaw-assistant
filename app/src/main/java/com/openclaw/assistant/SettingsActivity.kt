@@ -69,6 +69,8 @@ fun SettingsScreen(
 ) {
     var webhookUrl by remember { mutableStateOf(settings.webhookUrl) }
     var authToken by remember { mutableStateOf(settings.authToken) }
+    var gatewayWebSocketUrl by remember { mutableStateOf(settings.gatewayWebSocketUrl) }
+    var certificateFingerprint by remember { mutableStateOf(settings.certificateFingerprint) }
     var defaultAgentId by remember { mutableStateOf(settings.defaultAgentId) }
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
@@ -168,6 +170,8 @@ fun SettingsScreen(
                         onClick = {
                             settings.webhookUrl = webhookUrl
                             settings.authToken = authToken.trim()
+                            settings.gatewayWebSocketUrl = gatewayWebSocketUrl.trim()
+                            settings.certificateFingerprint = certificateFingerprint.trim()
                             settings.defaultAgentId = defaultAgentId
                             settings.ttsEnabled = ttsEnabled
                             settings.ttsSpeed = ttsSpeed
@@ -255,7 +259,29 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Gateway WebSocket URL Override
+                    OutlinedTextField(
+                        value = gatewayWebSocketUrl,
+                        onValueChange = { gatewayWebSocketUrl = it },
+                        label = { Text(stringResource(R.string.gateway_ws_url_label)) },
+                        placeholder = { Text(stringResource(R.string.gateway_ws_url_hint)) },
+                        leadingIcon = { Icon(Icons.Default.SettingsEthernet, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    // Certificate Fingerprint
+                    OutlinedTextField(
+                        value = certificateFingerprint,
+                        onValueChange = { certificateFingerprint = it },
+                        label = { Text(stringResource(R.string.cert_fingerprint_label)) },
+                        placeholder = { Text(stringResource(R.string.cert_fingerprint_hint)) },
+                        leadingIcon = { Icon(Icons.Default.Security, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -372,31 +398,26 @@ fun SettingsScreen(
                                     val testUrl = webhookUrl.trimEnd('/').let { url ->
                                         if (url.contains("/v1/")) url else "$url/v1/chat/completions"
                                     }
-                                    val result = apiClient.testConnection(testUrl, authToken.trim())
+                                    val cleanFingerprint = certificateFingerprint.trim().takeIf { it.isNotBlank() }
+                                    val result = apiClient.testConnection(testUrl, authToken.trim(), cleanFingerprint)
                                     result.fold(
                                         onSuccess = {
                                             testResult = TestResult(success = true, message = context.getString(R.string.connected))
                                             settings.webhookUrl = webhookUrl
                                             settings.authToken = authToken.trim()
+                                            settings.gatewayWebSocketUrl = gatewayWebSocketUrl.trim()
+                                            settings.certificateFingerprint = certificateFingerprint.trim()
                                             settings.isVerified = true
 
                                             // Fetch agent list via WebSocket
                                             scope.launch {
                                                 isFetchingAgents = true
                                                 try {
-                                                    val baseUrl = settings.getBaseUrl()
-                                                    val parsedUrl = java.net.URL(baseUrl)
-                                                    val host = parsedUrl.host
-                                                    val useTls = parsedUrl.protocol == "https"
-                                                    val port = if (useTls) {
-                                                        if (parsedUrl.port > 0) parsedUrl.port else 443
-                                                    } else {
-                                                        if (settings.gatewayPort > 0) settings.gatewayPort else if (parsedUrl.port > 0) parsedUrl.port else 18789
-                                                    }
+                                                    val wsUrl = settings.getEffectiveGatewayUrl()
                                                     val token = authToken.takeIf { t -> t.isNotBlank() }
 
                                                     if (!gatewayClient.isConnected()) {
-                                                        gatewayClient.connect(host, port, token, useTls = useTls)
+                                                        gatewayClient.connect(wsUrl, token, cleanFingerprint)
                                                         // Wait for connection
                                                         for (i in 1..20) {
                                                             delay(250)

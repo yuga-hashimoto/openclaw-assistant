@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
+import com.openclaw.assistant.utils.SslUtils
 import kotlin.math.min
 import kotlin.math.pow
 
@@ -102,10 +103,9 @@ class GatewayClient(context: android.content.Context) {
 
     // --- Internal connection state ---
 
-    private var desiredHost: String? = null
-    private var desiredPort: Int = 18789
+    private var desiredUrl: String? = null
     private var desiredToken: String? = null
-    private var desiredUseTls: Boolean = false
+    private var desiredFingerprint: String? = null
 
     private var runLoopJob: Job? = null
     private var currentSocket: WebSocket? = null
@@ -114,28 +114,50 @@ class GatewayClient(context: android.content.Context) {
     private var closeDeferred: CompletableDeferred<Unit>? = null
     private var connectNonceDeferred: CompletableDeferred<String?>? = null
 
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS) // WebSocket: no read timeout
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .pingInterval(25, TimeUnit.SECONDS)
-        .build()
+    private var httpClient = createHttpClient(null)
+
+    private fun createHttpClient(fingerprint: String?): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS) // WebSocket: no read timeout
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .pingInterval(25, TimeUnit.SECONDS)
+
+        return SslUtils.applyFingerprint(builder, fingerprint).build()
+    }
 
     // --- Public API ---
 
-    fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false) {
-        desiredHost = host
-        desiredPort = port
+    fun connect(url: String, token: String? = null, fingerprint: String? = null) {
+        if (desiredUrl == url && desiredToken == token && desiredFingerprint == fingerprint && isConnected()) {
+            return
+        }
+
+        desiredUrl = url
         desiredToken = token
-        desiredUseTls = useTls
+        desiredFingerprint = fingerprint
+
+        // Re-create HTTP client if fingerprint changed
+        httpClient = createHttpClient(fingerprint)
 
         if (runLoopJob == null) {
             runLoopJob = scope.launch { runLoop() }
+        } else {
+            reconnect()
+        }
+    }
+
+    /**
+     * Forces the connection loop to restart and pick up new parameters immediately.
+     */
+    fun reconnect() {
+        scope.launch {
+            currentSocket?.close(1001, "reconnecting")
         }
     }
 
     fun disconnect() {
-        desiredHost = null
+        desiredUrl = null
         currentSocket?.close(1000, "bye")
         scope.launch {
             runLoopJob?.cancelAndJoin()
@@ -241,8 +263,8 @@ class GatewayClient(context: android.content.Context) {
     private suspend fun runLoop() {
         var attempt = 0
         while (scope.isActive) {
-            val host = desiredHost
-            if (host == null) {
+            val url = desiredUrl
+            if (url == null) {
                 delay(250)
                 continue
             }
@@ -253,7 +275,7 @@ class GatewayClient(context: android.content.Context) {
                 else
                     ConnectionState.RECONNECTING
 
-                connectOnce(host, desiredPort, desiredToken, desiredUseTls)
+                connectOnce(url, desiredToken)
                 attempt = 0
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -270,14 +292,12 @@ class GatewayClient(context: android.content.Context) {
         }
     }
 
-    private suspend fun connectOnce(host: String, port: Int, token: String?, useTls: Boolean) {
+    private suspend fun connectOnce(url: String, token: String?) {
         isClosed.set(false)
         connectDeferred = CompletableDeferred()
         closeDeferred = CompletableDeferred()
         connectNonceDeferred = CompletableDeferred()
 
-        val scheme = if (useTls) "wss" else "ws"
-        val url = "$scheme://$host:$port"
         Log.e(TAG, "Connecting to $url")
 
         val request = Request.Builder().url(url).build()

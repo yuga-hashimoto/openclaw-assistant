@@ -154,29 +154,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun connectGatewayIfNeeded() {
-        val baseUrl = settings.getBaseUrl()
-        if (baseUrl.isBlank()) return
+        val wsUrl = settings.getEffectiveGatewayUrl()
+        if (wsUrl.isBlank()) return
 
-        try {
-            val url = java.net.URL(baseUrl)
-            val host = url.host
-            val useTls = url.protocol == "https"
+        val token = settings.authToken.takeIf { it.isNotBlank() }
+        val fingerprint = settings.certificateFingerprint.takeIf { it.isNotBlank() }
 
-            // For tunneled connections (HTTPS, e.g. ngrok), use the URL's port (443 default).
-            // For direct LAN connections (HTTP), use gatewayPort setting or URL port.
-            val port = if (useTls) {
-                if (url.port > 0) url.port else 443
-            } else {
-                if (settings.gatewayPort > 0) settings.gatewayPort else
-                    if (url.port > 0) url.port else 18789
-            }
-            val token = settings.authToken.takeIf { it.isNotBlank() }
-
-            Log.d(TAG, "Connecting gateway: $host:$port, tls=$useTls")
-            gatewayClient.connect(host, port, token, useTls = useTls)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to parse webhook URL for WS: ${e.message}")
-        }
+        Log.d(TAG, "Connecting gateway: $wsUrl")
+        gatewayClient.connect(wsUrl, token, fingerprint)
     }
 
     fun createNewSession() {
@@ -270,7 +255,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             message = text,
             sessionId = sessionId,
             authToken = settings.authToken.takeIf { it.isNotBlank() },
-            agentId = getEffectiveAgentId()
+            agentId = getEffectiveAgentId(),
+            fingerprint = settings.certificateFingerprint.takeIf { it.isNotBlank() }
         )
 
         result.fold(

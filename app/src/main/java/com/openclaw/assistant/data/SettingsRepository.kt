@@ -38,6 +38,16 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_AUTH_TOKEN, value).apply()
 
+    // Gateway WebSocket URL (optional override)
+    var gatewayWebSocketUrl: String
+        get() = prefs.getString(KEY_GATEWAY_WS_URL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_GATEWAY_WS_URL, value).apply()
+
+    // Certificate Fingerprint (optional)
+    var certificateFingerprint: String
+        get() = prefs.getString(KEY_CERT_FINGERPRINT, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CERT_FINGERPRINT, value).apply()
+
     // Session ID (auto-generated)
     var sessionId: String
         get() {
@@ -157,9 +167,36 @@ class SettingsRepository(context: Context) {
      * Extracts base from full path URLs, or returns as-is for base URLs.
      */
     fun getBaseUrl(): String {
-        val url = webhookUrl.trimEnd('/')
+        val url = webhookUrl.trim().trimEnd('/')
+        if (url.isBlank()) return ""
         val idx = url.indexOf("/v1/")
         return if (idx > 0) url.substring(0, idx) else url
+    }
+
+    /**
+     * Resolves the effective gateway WebSocket URL.
+     * Prefers explicit [gatewayWebSocketUrl], otherwise derives it from [webhookUrl].
+     */
+    fun getEffectiveGatewayUrl(): String {
+        val override = gatewayWebSocketUrl.trim()
+        if (override.isNotBlank()) return override
+
+        val baseUrl = getBaseUrl()
+        if (baseUrl.isBlank()) return ""
+
+        return try {
+            val uri = java.net.URI(baseUrl)
+            val scheme = if (uri.scheme == "https") "wss" else "ws"
+            val host = uri.host
+            val port = if (uri.port > 0) uri.port else if (uri.scheme == "https") 443 else gatewayPort
+
+            // Reconstruct with correct scheme and port
+            "$scheme://$host:$port${uri.path.trimEnd('/')}"
+        } catch (e: Exception) {
+            // Fallback for non-standard URLs
+            baseUrl.replace("http://", "ws://")
+                .replace("https://", "wss://")
+        }
     }
 
     // Check if configured
@@ -181,6 +218,8 @@ class SettingsRepository(context: Context) {
         private const val PREFS_NAME = "openclaw_secure_prefs"
         private const val KEY_WEBHOOK_URL = "webhook_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_GATEWAY_WS_URL = "gateway_ws_url"
+        private const val KEY_CERT_FINGERPRINT = "cert_fingerprint"
         private const val KEY_SESSION_ID = "session_id"
         private const val KEY_HOTWORD_ENABLED = "hotword_enabled"
         private const val KEY_WAKE_WORD_PRESET = "wake_word_preset"

@@ -4,6 +4,7 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.openclaw.assistant.utils.SslUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,11 +19,14 @@ import java.util.concurrent.TimeUnit
  */
 class OpenClawClient {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private fun getClient(fingerprint: String?): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+
+        return SslUtils.applyFingerprint(builder, fingerprint).build()
+    }
 
     private val gson = Gson()
 
@@ -34,7 +38,8 @@ class OpenClawClient {
         message: String,
         sessionId: String,
         authToken: String? = null,
-        agentId: String? = null
+        agentId: String? = null,
+        fingerprint: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -74,6 +79,7 @@ class OpenClawClient {
             }
 
             val request = requestBuilder.build()
+            val client = getClient(fingerprint)
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
@@ -109,7 +115,8 @@ class OpenClawClient {
      */
     suspend fun testConnection(
         webhookUrl: String,
-        authToken: String?
+        authToken: String?,
+        fingerprint: String? = null
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -128,6 +135,7 @@ class OpenClawClient {
             }
 
             var request = requestBuilder.build()
+            val client = getClient(fingerprint)
             
             try {
                 client.newCall(request).execute().use { response ->
