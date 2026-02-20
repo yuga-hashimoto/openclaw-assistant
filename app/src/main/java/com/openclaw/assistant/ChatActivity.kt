@@ -55,6 +55,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.ui.chat.ChatMessage
+import com.openclaw.assistant.ui.chat.PendingToolCall
 import com.openclaw.assistant.ui.components.MarkdownText
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
@@ -433,7 +434,11 @@ fun ChatScreen(
                         }
                     }
                     
-                    if (uiState.isThinking) {
+                    if (uiState.pendingToolCalls.isNotEmpty()) {
+                        item {
+                            RunningToolsIndicator()
+                        }
+                    } else if (uiState.isThinking) {
                         item {
                             ThinkingIndicator()
                         }
@@ -522,6 +527,35 @@ fun MessageBubble(message: ChatMessage) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, start = 8.dp, end = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun RunningToolsIndicator() {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.running_tools),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
             )
         }
     }

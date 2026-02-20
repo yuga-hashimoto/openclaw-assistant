@@ -29,6 +29,7 @@
     <string name="stop_description">停止</string>
     <string name="listening">聞いています…</string>
     <string name="thinking">考え中…</string>
+    <string name="running_tools">ツールを実行中…</string>
     <string name="speaking">読み上げ中…</string>
     <string name="ready">準備完了</string>
     <string name="error_no_webhook">Webhook URLを設定してください</string>

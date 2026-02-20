@@ -33,6 +33,13 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+data class PendingToolCall(
+    val toolCallId: String,
+    val name: String,
+    val argsSummary: String? = null,
+    val startedAt: Long = System.currentTimeMillis()
+)
+
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isListening: Boolean = false,
@@ -44,7 +51,8 @@ data class ChatUiState(
     val selectedAgentId: String? = null, // null = use default from settings
     val defaultAgentId: String = "main", // From settings, for display when agent list unavailable
     val isPairingRequired: Boolean = false,
-    val deviceId: String? = null
+    val deviceId: String? = null,
+    val pendingToolCalls: Map<String, PendingToolCall> = emptyMap()
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -140,6 +148,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(
                     availableAgents = agentListResult?.agents ?: emptyList()
                 )}
+            }
+        }
+
+        // Observe tool calls from gateway
+        viewModelScope.launch {
+            gatewayClient.agentEvents.collect { event ->
+                if (event.stream == "tool" && event.data != null) {
+                    val data = event.data
+                    val toolCallId = data.toolCallId ?: return@collect
+
+                    _uiState.update { state ->
+                        val updatedMap = state.pendingToolCalls.toMutableMap()
+                        when (data.phase) {
+                            "start" -> {
+                                updatedMap[toolCallId] = PendingToolCall(
+                                    toolCallId = toolCallId,
+                                    name = data.name ?: "tool",
+                                    argsSummary = data.text,
+                                    startedAt = System.currentTimeMillis()
+                                )
+                            }
+                            "result" -> {
+                                updatedMap.remove(toolCallId)
+                            }
+                        }
+                        state.copy(pendingToolCalls = updatedMap)
+                    }
+                }
+            }
+        }
+
+        // Observe chat run state from gateway to clear pending tools on completion
+        viewModelScope.launch {
+            gatewayClient.chatEvents.collect { event ->
+                if (event.state == "final" || event.state == "aborted" || event.state == "error") {
+                    _uiState.update { it.copy(pendingToolCalls = emptyMap()) }
+                }
             }
         }
 
@@ -246,7 +291,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Ensure we have a session
         val sessionId = _currentSessionId.value ?: return
 
-        _uiState.update { it.copy(isThinking = true) }
+        _uiState.update { it.copy(isThinking = true, pendingToolCalls = emptyMap()) }
         if (lastInputWasVoice) {
             toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
         }

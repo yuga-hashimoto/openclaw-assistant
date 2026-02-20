@@ -53,6 +53,7 @@
     <string name="stop_description">Stop</string>
     <string name="listening">Listening…</string>
     <string name="thinking">Thinking…</string>
+    <string name="running_tools">Running tools…</string>
     <string name="speaking">Speaking…</string>
     <string name="ready">Ready</string>
     <string name="error_no_webhook">Please configure Webhook URL</string>
