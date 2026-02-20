@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Speech recognition errors (used by SpeechRecognizerManager) -->
+    <string name="error_speech_audio">Audio error</string>
+    <string name="error_speech_client">Client error</string>
+    <string name="error_speech_permissions">Insufficient permissions</string>
+    <string name="error_speech_network">Network error</string>
+    <string name="error_speech_timeout">Network timeout</string>
+    <string name="error_speech_no_match">No match found</string>
+    <string name="error_speech_busy">Recognition service busy - retrying</string>
+    <string name="error_speech_server">Server error</string>
+    <string name="error_speech_input_timeout">No speech input</string>
+    <string name="error_speech_unknown">Unknown error (%d)</string>
+    <string name="error_no_recognition_result">No recognition result</string>
+    <string name="error_start_failed">Start error: %s</string>
+</resources>

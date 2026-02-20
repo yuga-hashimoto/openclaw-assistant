@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenClaw</string>
+
+    <!-- Assistant states -->
+    <string name="state_listening">Listening…</string>
+    <string name="state_thinking">Thinking…</string>
+    <string name="state_speaking">Speaking…</string>
+    <string name="state_error">Error</string>
+    <string name="state_ready">Ready</string>
+
+    <!-- Foreground service notification -->
+    <string name="notification_channel_name">Voice Session</string>
+    <string name="notification_session_title">OpenClaw active</string>
+    <string name="notification_session_content">Voice session in progress</string>
+
+    <!-- Main activity -->
+    <string name="set_default_assistant">Set as Default Assistant</string>
+    <string name="not_configured">Configure on phone first</string>
+    <string name="configured">Ready to use</string>
+    <string name="action_try_again">Try Again</string>
+
+    <!-- Errors -->
+    <string name="error_config_required">Please configure webhook URL</string>
+    <string name="error_no_response">No response</string>
+    <string name="error_network">Network error</string>
+    <string name="error_speech_general">Speech error</string>
+</resources>

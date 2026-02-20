@@ -59,7 +59,7 @@ class SpeechRecognizerManager(private val context: Context) {
         }
 
         if (recognizer == null) {
-            trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_speech_client)))
+            trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.shared.R.string.error_speech_client)))
             close()
             return@callbackFlow
         }
@@ -86,16 +86,16 @@ class SpeechRecognizerManager(private val context: Context) {
 
             override fun onError(error: Int) {
                 val errorMessage = when (error) {
-                    SpeechRecognizer.ERROR_AUDIO -> context.getString(com.openclaw.assistant.R.string.error_speech_audio)
-                    SpeechRecognizer.ERROR_CLIENT -> context.getString(com.openclaw.assistant.R.string.error_speech_client)
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> context.getString(com.openclaw.assistant.R.string.error_speech_permissions)
-                    SpeechRecognizer.ERROR_NETWORK -> context.getString(com.openclaw.assistant.R.string.error_speech_network)
-                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> context.getString(com.openclaw.assistant.R.string.error_speech_timeout)
-                    SpeechRecognizer.ERROR_NO_MATCH -> context.getString(com.openclaw.assistant.R.string.error_speech_no_match)
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> context.getString(com.openclaw.assistant.R.string.error_speech_busy)
-                    SpeechRecognizer.ERROR_SERVER -> context.getString(com.openclaw.assistant.R.string.error_speech_server)
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> context.getString(com.openclaw.assistant.R.string.error_speech_input_timeout)
-                    else -> context.getString(com.openclaw.assistant.R.string.error_speech_unknown, error)
+                    SpeechRecognizer.ERROR_AUDIO -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_audio)
+                    SpeechRecognizer.ERROR_CLIENT -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_client)
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_permissions)
+                    SpeechRecognizer.ERROR_NETWORK -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_network)
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_timeout)
+                    SpeechRecognizer.ERROR_NO_MATCH -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_no_match)
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_busy)
+                    SpeechRecognizer.ERROR_SERVER -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_server)
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_input_timeout)
+                    else -> context.getString(com.openclaw.assistant.shared.R.string.error_speech_unknown, error)
                 }
                 
                 trySend(SpeechResult.Error(errorMessage, error))
@@ -123,7 +123,7 @@ class SpeechRecognizerManager(private val context: Context) {
                         alternatives = matches.drop(1)
                     ))
                 } else {
-                    trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_no_recognition_result), SpeechRecognizer.ERROR_NO_MATCH))
+                    trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.shared.R.string.error_no_recognition_result), SpeechRecognizer.ERROR_NO_MATCH))
                 }
                 close()
             }
@@ -157,7 +157,7 @@ class SpeechRecognizerManager(private val context: Context) {
              try {
                  currentRecognizer.startListening(intent)
              } catch (e: Exception) {
-                 trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.R.string.error_start_failed, e.message)))
+                 trySend(SpeechResult.Error(context.getString(com.openclaw.assistant.shared.R.string.error_start_failed, e.message)))
                  close()
              }
         })

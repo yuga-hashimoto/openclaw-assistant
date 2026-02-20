@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "OpenClawAssistant"
 include(":app")
+include(":shared")
+include(":wear")
