@@ -646,18 +646,19 @@ fun MessageBubble(message: ChatMessage) {
                             }
                         }
                         if (message.text.isNotBlank()) {
-                        if (isUser) {
-                            Text(
-                                text = message.text,
-                                color = contentColor,
-                                fontSize = 16.sp,
-                                lineHeight = 24.sp
-                            )
-                        } else {
-                            MarkdownText(
-                                markdown = message.text,
-                                color = contentColor
-                            )
+                            if (isUser) {
+                                Text(
+                                    text = message.text,
+                                    color = contentColor,
+                                    fontSize = 16.sp,
+                                    lineHeight = 24.sp
+                                )
+                            } else {
+                                MarkdownText(
+                                    markdown = message.text,
+                                    color = contentColor
+                                )
+                            }
                         }
                     }
                 }
