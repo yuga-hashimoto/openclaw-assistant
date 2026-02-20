@@ -154,6 +154,11 @@
     <string name="notification_session_content">Voice session is active</string>
 
     <!-- Chat UI -->
+    <string name="thinking_level">Thinking Level</string>
+    <string name="thinking_off">Off</string>
+    <string name="thinking_low">Low</string>
+    <string name="thinking_medium">Medium</string>
+    <string name="thinking_high">High</string>
     <string name="conversations_title">Conversations</string>
     <string name="new_chat">New Chat</string>
     <string name="delete">Delete</string>

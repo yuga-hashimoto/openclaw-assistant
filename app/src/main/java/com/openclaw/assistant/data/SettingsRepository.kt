@@ -141,6 +141,14 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_DEFAULT_AGENT_ID, "main") ?: "main"
         set(value) = prefs.edit().putString(KEY_DEFAULT_AGENT_ID, value).apply()
 
+    // Thinking Level (off, low, medium, high)
+    var thinkingLevel: String
+        get() = prefs.getString(KEY_THINKING_LEVEL, "off") ?: "off"
+        set(value) {
+            val sanitized = if (value in listOf("off", "low", "medium", "high")) value else "off"
+            prefs.edit().putString(KEY_THINKING_LEVEL, sanitized).apply()
+        }
+
     /**
      * Get the chat completions URL.
      * Supports both base URL (http://server) and full path (http://server/v1/chat/completions).
@@ -195,6 +203,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
         private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
         private const val KEY_SPEECH_LANGUAGE = "speech_language"
+        private const val KEY_THINKING_LEVEL = "thinking_level"
 
         // Wake word presets
         const val WAKE_WORD_OPEN_CLAW = "open_claw"

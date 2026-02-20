@@ -44,7 +44,8 @@ data class ChatUiState(
     val selectedAgentId: String? = null, // null = use default from settings
     val defaultAgentId: String = "main", // From settings, for display when agent list unavailable
     val isPairingRequired: Boolean = false,
-    val deviceId: String? = null
+    val deviceId: String? = null,
+    val thinkingLevel: String = "off"
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -149,6 +150,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.update { it.copy(defaultAgentId = savedAgentId, selectedAgentId = savedAgentId) }
         }
 
+        // Initialize thinking level from settings
+        _uiState.update { it.copy(thinkingLevel = settings.thinkingLevel) }
+
         // Auto-connect to WebSocket if configured
         connectGatewayIfNeeded()
     }
@@ -233,6 +237,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(selectedAgentId = agentId) }
     }
 
+    fun setThinkingLevel(level: String) {
+        settings.thinkingLevel = level
+        _uiState.update { it.copy(thinkingLevel = settings.thinkingLevel) }
+    }
+
     private fun getEffectiveAgentId(): String? {
         val selected = _uiState.value.selectedAgentId
         if (selected != null) return selected
@@ -256,7 +265,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // Save User Message
                 chatRepository.addMessage(sessionId, text, isUser = true)
-                sendViaHttp(sessionId, text)
+                sendViaHttp(sessionId, text, _uiState.value.thinkingLevel)
             } catch (e: Exception) {
                 stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, error = e.message) }
@@ -264,13 +273,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun sendViaHttp(sessionId: String, text: String) {
+    private suspend fun sendViaHttp(sessionId: String, text: String, thinkingLevel: String) {
         val result = apiClient.sendMessage(
             webhookUrl = settings.getChatCompletionsUrl(),
             message = text,
             sessionId = sessionId,
             authToken = settings.authToken.takeIf { it.isNotBlank() },
-            agentId = getEffectiveAgentId()
+            agentId = getEffectiveAgentId(),
+            thinkingLevel = thinkingLevel
         )
 
         result.fold(

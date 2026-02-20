@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
@@ -131,7 +132,8 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     onSelectSession = { viewModel.selectSession(it) },
                     onCreateSession = { viewModel.createNewSession() },
                     onDeleteSession = { viewModel.deleteSession(it) },
-                    onAgentSelected = { viewModel.setAgent(it) }
+                    onAgentSelected = { viewModel.setAgent(it) },
+                    onThinkingLevelSelected = { viewModel.setThinkingLevel(it) }
                 )
             }
         }
@@ -226,7 +228,8 @@ fun ChatScreen(
     onSelectSession: (String) -> Unit,
     onCreateSession: () -> Unit,
     onDeleteSession: (String) -> Unit,
-    onAgentSelected: (String?) -> Unit = {}
+    onAgentSelected: (String?) -> Unit = {},
+    onThinkingLevelSelected: (String) -> Unit = {}
 ) {
     var inputText by remember { mutableStateOf(initialText) }
     val listState = rememberLazyListState()
@@ -393,6 +396,8 @@ fun ChatScreen(
                         },
                         isListening = uiState.isListening,
                         isSpeaking = uiState.isSpeaking,
+                        thinkingLevel = uiState.thinkingLevel,
+                        onThinkingLevelChange = onThinkingLevelSelected,
                         onMicClick = {
                             if (uiState.isSpeaking) {
                                 onInterruptAndListen()
@@ -663,6 +668,76 @@ fun AgentSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThinkingLevelSelector(
+    thinkingLevel: String,
+    onThinkingLevelSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val levels = listOf("off", "low", "medium", "high")
+
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = stringResource(R.string.thinking_level),
+                    tint = if (thinkingLevel == "off") MaterialTheme.colorScheme.onSurfaceVariant
+                           else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                if (thinkingLevel != "off") {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 2.dp, y = 2.dp)
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                }
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            levels.forEach { level ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            when (level) {
+                                "off" -> stringResource(R.string.thinking_off)
+                                "low" -> stringResource(R.string.thinking_low)
+                                "medium" -> stringResource(R.string.thinking_medium)
+                                "high" -> stringResource(R.string.thinking_high)
+                                else -> level
+                            }
+                        )
+                    },
+                    onClick = {
+                        onThinkingLevelSelected(level)
+                        expanded = false
+                    },
+                    leadingIcon = {
+                        if (thinkingLevel == level) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun ChatInputArea(
     value: String,
@@ -670,15 +745,24 @@ fun ChatInputArea(
     onSend: () -> Unit,
     isListening: Boolean,
     isSpeaking: Boolean = false,
+    thinkingLevel: String = "off",
+    onThinkingLevelChange: (String) -> Unit = {},
     onMicClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        ThinkingLevelSelector(
+            thinkingLevel = thinkingLevel,
+            onThinkingLevelSelected = onThinkingLevelChange
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
