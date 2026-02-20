@@ -118,7 +118,7 @@
     <string name="activation_phrase">Activation Phrase</string>
     <string name="custom_wake_word">Custom Wake Word</string>
     <string name="custom_wake_word_hint">e.g., hey buddy</string>
-    <string name="custom_wake_word_help">Enter 2-3 words, lowercase</string>
+    <string name="custom_wake_word_help">Enter 2-3 English words, lowercase</string>
     <string name="testing">Testing…</string>
     <string name="connected">Connected!</string>
     <string name="failed">Failed: %s</string>

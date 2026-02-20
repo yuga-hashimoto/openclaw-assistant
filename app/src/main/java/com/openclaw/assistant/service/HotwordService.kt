@@ -286,6 +286,10 @@ class HotwordService : Service(), VoskRecognitionListener {
     }
 
     private fun initVosk() {
+        if (model != null) {
+            if (!isSessionActive) startHotwordListening()
+            return
+        }
         val prefs = getSharedPreferences("hotword_prefs", Context.MODE_PRIVATE)
 
         // Clear vosk_unsupported flag when the app is updated, so the new Vosk

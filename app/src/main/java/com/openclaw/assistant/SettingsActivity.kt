@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openclaw.assistant.api.OpenClawClient
 import com.openclaw.assistant.data.SettingsRepository
+import com.openclaw.assistant.service.HotwordService
 import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
@@ -177,6 +178,9 @@ fun SettingsScreen(
                             settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
                             settings.speechLanguage = speechLanguage
                             settings.thinkingSoundEnabled = thinkingSoundEnabled
+                            if (settings.hotwordEnabled) {
+                                HotwordService.start(context)
+                            }
                             onSave()
                         },
                         enabled = webhookUrl.isNotBlank() && !isTesting
