@@ -34,7 +34,9 @@ object SystemInfoProvider {
     private fun getAppVersion(context: Context): String {
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            "${packageInfo.versionName} (${@Suppress("DEPRECATION") packageInfo.versionCode})"
+            @Suppress("DEPRECATION")
+            val versionCode = packageInfo.versionCode
+            "${packageInfo.versionName} ($versionCode)"
         } catch (e: Exception) {
             "Unknown"
         }
