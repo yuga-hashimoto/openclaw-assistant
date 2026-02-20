@@ -30,6 +30,11 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
+        <!-- Standalone Wear OS app (does not require companion phone app) -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+
         <!-- Main Activity (Settings / Status screen) -->
         <activity
             android:name=".WearMainActivity"
