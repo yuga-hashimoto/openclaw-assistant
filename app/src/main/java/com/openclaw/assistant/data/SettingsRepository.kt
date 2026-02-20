@@ -100,6 +100,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_CONTINUOUS_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_CONTINUOUS_MODE, value).apply()
 
+    // Resume Latest Session
+    var resumeLatestSession: Boolean
+        get() = prefs.getBoolean(KEY_RESUME_LATEST_SESSION, false)
+        set(value) = prefs.edit().putBoolean(KEY_RESUME_LATEST_SESSION, value).apply()
+
     // TTS Speed
     var ttsSpeed: Float
         get() = prefs.getFloat(KEY_TTS_SPEED, 1.2f)
@@ -188,6 +193,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_IS_VERIFIED = "is_verified"
         private const val KEY_TTS_ENABLED = "tts_enabled"
         private const val KEY_CONTINUOUS_MODE = "continuous_mode"
+        private const val KEY_RESUME_LATEST_SESSION = "resume_latest_session"
         private const val KEY_TTS_SPEED = "tts_speed"
         private const val KEY_TTS_ENGINE = "tts_engine"
         private const val KEY_GATEWAY_PORT = "gateway_port"

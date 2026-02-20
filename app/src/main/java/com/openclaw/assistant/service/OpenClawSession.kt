@@ -188,15 +188,22 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         // PAUSE Hotword Service to prevent microphone conflict
         sendPauseBroadcast()
         
-        // CREATE NEW SESSION
+        // SESSION MANAGEMENT
         scope.launch {
             try {
-                currentSessionId = chatRepository.createSession(title = String.format(context.getString(R.string.default_session_title_format), java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())))
-                // Store this ID in settings if we want the ChatActivity to resume it?
-                // For now, standalone usage.
-                settings.sessionId = currentSessionId!! 
+                val latestSession = if (settings.resumeLatestSession) chatRepository.getLatestSession() else null
+                if (latestSession != null) {
+                    currentSessionId = latestSession.id
+                    Log.d(TAG, "Resuming latest session: $currentSessionId")
+                } else {
+                    currentSessionId = chatRepository.createSession(title = String.format(context.getString(R.string.default_session_title_format), java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())))
+                    Log.d(TAG, "Created new session: $currentSessionId")
+                }
+
+                // Store this ID in settings so ChatActivity and API calls use it
+                currentSessionId?.let { settings.sessionId = it }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to create DB session", e)
+                Log.e(TAG, "Failed to handle session", e)
             }
         }
         

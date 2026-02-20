@@ -69,6 +69,7 @@ fun SettingsScreen(
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
+    var resumeLatestSession by remember { mutableStateOf(settings.resumeLatestSession) }
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
     var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat().coerceIn(5000f, 30000f)) }
@@ -169,6 +170,7 @@ fun SettingsScreen(
                             settings.ttsSpeed = ttsSpeed
                             settings.ttsEngine = ttsEngine
                             settings.continuousMode = continuousMode
+                            settings.resumeLatestSession = resumeLatestSession
                             settings.wakeWordPreset = wakeWordPreset
                             settings.customWakeWord = customWakeWord
                             settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
@@ -707,6 +709,20 @@ fun SettingsScreen(
                             Text(stringResource(R.string.auto_start_mic), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                         }
                         Switch(checked = continuousMode, onCheckedChange = { continuousMode = it })
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.resume_latest_session), style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.resume_latest_session_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(checked = resumeLatestSession, onCheckedChange = { resumeLatestSession = it })
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
