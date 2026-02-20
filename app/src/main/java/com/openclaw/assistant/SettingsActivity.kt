@@ -69,6 +69,7 @@ fun SettingsScreen(
 ) {
     var webhookUrl by remember { mutableStateOf(settings.webhookUrl) }
     var authToken by remember { mutableStateOf(settings.authToken) }
+    var tlsFingerprint by remember { mutableStateOf(settings.tlsFingerprint) }
     var defaultAgentId by remember { mutableStateOf(settings.defaultAgentId) }
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
@@ -168,6 +169,7 @@ fun SettingsScreen(
                         onClick = {
                             settings.webhookUrl = webhookUrl
                             settings.authToken = authToken.trim()
+                            settings.tlsFingerprint = tlsFingerprint.trim()
                             settings.defaultAgentId = defaultAgentId
                             settings.ttsEnabled = ttsEnabled
                             settings.ttsSpeed = ttsSpeed
@@ -227,6 +229,31 @@ fun SettingsScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         isError = webhookUrl.isBlank()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // TLS Fingerprint
+                    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                    OutlinedTextField(
+                        value = tlsFingerprint,
+                        onValueChange = {
+                            tlsFingerprint = it.trim()
+                            testResult = null
+                        },
+                        label = { Text(stringResource(R.string.tls_fingerprint_label)) },
+                        placeholder = { Text(stringResource(R.string.tls_fingerprint_hint)) },
+                        supportingText = { Text(stringResource(R.string.tls_fingerprint_help)) },
+                        leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                clipboardManager.getText()?.let { tlsFingerprint = it.text.trim() }
+                            }) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.paste_from_clipboard))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -372,12 +399,13 @@ fun SettingsScreen(
                                     val testUrl = webhookUrl.trimEnd('/').let { url ->
                                         if (url.contains("/v1/")) url else "$url/v1/chat/completions"
                                     }
-                                    val result = apiClient.testConnection(testUrl, authToken.trim())
+                                    val result = apiClient.testConnection(testUrl, authToken.trim(), tlsFingerprint.trim().takeIf { it.isNotEmpty() })
                                     result.fold(
                                         onSuccess = {
                                             testResult = TestResult(success = true, message = context.getString(R.string.connected))
                                             settings.webhookUrl = webhookUrl
                                             settings.authToken = authToken.trim()
+                                            settings.tlsFingerprint = tlsFingerprint.trim()
                                             settings.isVerified = true
 
                                             // Fetch agent list via WebSocket
@@ -394,9 +422,10 @@ fun SettingsScreen(
                                                         if (settings.gatewayPort > 0) settings.gatewayPort else if (parsedUrl.port > 0) parsedUrl.port else 18789
                                                     }
                                                     val token = authToken.takeIf { t -> t.isNotBlank() }
+                                                    val fingerprint = tlsFingerprint.trim().takeIf { it.isNotEmpty() }
 
                                                     if (!gatewayClient.isConnected()) {
-                                                        gatewayClient.connect(host, port, token, useTls = useTls)
+                                                        gatewayClient.connect(host, port, token, useTls = useTls, tlsFingerprint = fingerprint)
                                                         // Wait for connection
                                                         for (i in 1..20) {
                                                             delay(250)
@@ -422,8 +451,19 @@ fun SettingsScreen(
                                                 }
                                             }
                                         },
-                                        onFailure = {
-                                            testResult = TestResult(success = false, message = context.getString(R.string.failed, it.message ?: ""))
+                                        onFailure = { error ->
+                                            val errorMessage = error.message ?: ""
+                                            val message = when {
+                                                errorMessage.contains("Fingerprint mismatch", ignoreCase = true) ->
+                                                    context.getString(R.string.error_tls_cert_mismatch)
+                                                errorMessage.contains("Trust anchor for certification path not found", ignoreCase = true) ||
+                                                errorMessage.contains("self signed certificate", ignoreCase = true) ->
+                                                    context.getString(R.string.error_tls_self_signed_hint)
+                                                error is javax.net.ssl.SSLHandshakeException ->
+                                                    context.getString(R.string.error_tls_failed)
+                                                else -> context.getString(R.string.failed, errorMessage)
+                                            }
+                                            testResult = TestResult(success = false, message = message)
                                         }
                                     )
                                 } catch (e: Exception) {

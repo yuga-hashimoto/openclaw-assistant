@@ -99,6 +99,13 @@
     <string name="connected">接続成功！</string>
     <string name="failed">失敗: %s</string>
     <string name="error">エラー: %s</string>
+    <string name="tls_fingerprint_label">TLSフィンガープリント (SHA-256)</string>
+    <string name="tls_fingerprint_hint">任意（自己署名証明書用）</string>
+    <string name="tls_fingerprint_help">形式: aa:bb:cc… または aabbcc…</string>
+    <string name="paste_from_clipboard">クリップボードから貼り付け</string>
+    <string name="error_tls_failed">TLSハンドシェイクに失敗しました</string>
+    <string name="error_tls_cert_mismatch">証明書のフィンガープリントが一致しません</string>
+    <string name="error_tls_self_signed_hint">自己署名証明書が検出されました。設定からTLSフィンガープリントを設定してください。</string>
     
     <!-- Wake Word Presets -->
     <string name="wake_word_openclaw">OpenClaw</string>

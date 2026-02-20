@@ -173,7 +173,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val token = settings.authToken.takeIf { it.isNotBlank() }
 
             Log.d(TAG, "Connecting gateway: $host:$port, tls=$useTls")
-            gatewayClient.connect(host, port, token, useTls = useTls)
+            gatewayClient.connect(host, port, token, useTls = useTls, tlsFingerprint = settings.tlsFingerprint.takeIf { it.isNotBlank() })
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse webhook URL for WS: ${e.message}")
         }
@@ -270,7 +270,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             message = text,
             sessionId = sessionId,
             authToken = settings.authToken.takeIf { it.isNotBlank() },
-            agentId = getEffectiveAgentId()
+            agentId = getEffectiveAgentId(),
+            tlsFingerprint = settings.tlsFingerprint.takeIf { it.isNotBlank() }
         )
 
         result.fold(

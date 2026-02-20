@@ -38,6 +38,16 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_AUTH_TOKEN, value).apply()
 
+    // TLS Fingerprint (optional, for self-signed certs)
+    var tlsFingerprint: String
+        get() = prefs.getString(KEY_TLS_FINGERPRINT, "") ?: ""
+        set(value) {
+            if (value != tlsFingerprint) {
+                prefs.edit().putString(KEY_TLS_FINGERPRINT, value).apply()
+                isVerified = false
+            }
+        }
+
     // Session ID (auto-generated)
     var sessionId: String
         get() {
@@ -181,6 +191,7 @@ class SettingsRepository(context: Context) {
         private const val PREFS_NAME = "openclaw_secure_prefs"
         private const val KEY_WEBHOOK_URL = "webhook_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_TLS_FINGERPRINT = "tls_fingerprint"
         private const val KEY_SESSION_ID = "session_id"
         private const val KEY_HOTWORD_ENABLED = "hotword_enabled"
         private const val KEY_WAKE_WORD_PRESET = "wake_word_preset"

@@ -123,6 +123,13 @@
     <string name="connected">Connected!</string>
     <string name="failed">Failed: %s</string>
     <string name="error">Error: %s</string>
+    <string name="tls_fingerprint_label">TLS Fingerprint (SHA-256)</string>
+    <string name="tls_fingerprint_hint">Optional (for self-signed certs)</string>
+    <string name="tls_fingerprint_help">Format: aa:bb:cc… or aabbcc…</string>
+    <string name="paste_from_clipboard">Paste from clipboard</string>
+    <string name="error_tls_failed">TLS handshake failed</string>
+    <string name="error_tls_cert_mismatch">Certificate fingerprint mismatch</string>
+    <string name="error_tls_self_signed_hint">Self-signed certificate detected. Try setting the TLS Fingerprint in Settings.</string>
     
     <!-- Wake Word Presets -->
     <string name="wake_word_openclaw">OpenClaw</string>

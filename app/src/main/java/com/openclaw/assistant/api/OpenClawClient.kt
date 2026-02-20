@@ -1,9 +1,11 @@
 package com.openclaw.assistant.api
 
+import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.openclaw.assistant.utils.SslUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,7 +36,8 @@ class OpenClawClient {
         message: String,
         sessionId: String,
         authToken: String? = null,
-        agentId: String? = null
+        agentId: String? = null,
+        tlsFingerprint: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -74,8 +77,13 @@ class OpenClawClient {
             }
 
             val request = requestBuilder.build()
+            val httpClient = if (!tlsFingerprint.isNullOrBlank()) {
+                SslUtils.createPinnedClient(client, tlsFingerprint)
+            } else {
+                client
+            }
 
-            client.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: response.message
                     return@withContext Result.failure(
@@ -109,7 +117,8 @@ class OpenClawClient {
      */
     suspend fun testConnection(
         webhookUrl: String,
-        authToken: String?
+        authToken: String?,
+        tlsFingerprint: String? = null
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -128,9 +137,14 @@ class OpenClawClient {
             }
 
             var request = requestBuilder.build()
+            val httpClient = if (!tlsFingerprint.isNullOrBlank()) {
+                SslUtils.createPinnedClient(client, tlsFingerprint)
+            } else {
+                client
+            }
             
             try {
-                client.newCall(request).execute().use { response ->
+                httpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful) return@withContext Result.success(true)
                     // If Method Not Allowed (405), try POST
                     if (response.code == 405) {
@@ -170,7 +184,7 @@ class OpenClawClient {
 
             request = requestBuilder.build()
             
-            client.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     Result.success(true)
                 } else {

@@ -403,7 +403,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             message = message,
             sessionId = settings.sessionId,
             authToken = settings.authToken.takeIf { it.isNotBlank() },
-            agentId = agentId
+            agentId = agentId,
+            tlsFingerprint = settings.tlsFingerprint.takeIf { it.isNotBlank() }
         )
 
         result.fold(
