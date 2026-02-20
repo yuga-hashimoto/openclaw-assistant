@@ -148,6 +148,14 @@
     <string name="agent_selector">Agent</string>
     <string name="agent_default">Default</string>
 
+    <!-- Gateway Status -->
+    <string name="gateway_connected">Connected</string>
+    <string name="gateway_connecting">Connecting…</string>
+    <string name="gateway_reconnecting">Reconnecting…</string>
+    <string name="gateway_disconnected">Disconnected</string>
+    <string name="gateway_error">Gateway Error</string>
+    <string name="retry">Retry</string>
+
     <!-- Session Foreground Service -->
     <string name="notification_session_channel_name">Voice Session</string>
     <string name="notification_session_title">Conversation in progress</string>

@@ -59,6 +59,7 @@ import com.openclaw.assistant.ui.components.MarkdownText
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
 import com.openclaw.assistant.gateway.AgentInfo
+import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
@@ -131,7 +132,8 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     onSelectSession = { viewModel.selectSession(it) },
                     onCreateSession = { viewModel.createNewSession() },
                     onDeleteSession = { viewModel.deleteSession(it) },
-                    onAgentSelected = { viewModel.setAgent(it) }
+                    onAgentSelected = { viewModel.setAgent(it) },
+                    onRetryConnection = { viewModel.retryConnection() }
                 )
             }
         }
@@ -226,7 +228,8 @@ fun ChatScreen(
     onSelectSession: (String) -> Unit,
     onCreateSession: () -> Unit,
     onDeleteSession: (String) -> Unit,
-    onAgentSelected: (String?) -> Unit = {}
+    onAgentSelected: (String?) -> Unit = {},
+    onRetryConnection: () -> Unit = {}
 ) {
     var inputText by remember { mutableStateOf(initialText) }
     val listState = rememberLazyListState()
@@ -342,6 +345,12 @@ fun ChatScreen(
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false)
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                GatewayStatusPill(
+                                    connectionState = uiState.connectionState,
+                                    isHealthOk = uiState.isGatewayHealthOk,
+                                    onRetry = onRetryConnection
+                                )
                             }
                             AgentSelector(
                                 agents = uiState.availableAgents,
@@ -393,6 +402,8 @@ fun ChatScreen(
                         },
                         isListening = uiState.isListening,
                         isSpeaking = uiState.isSpeaking,
+                        connectionState = uiState.connectionState,
+                        isGatewayHealthOk = uiState.isGatewayHealthOk,
                         onMicClick = {
                             if (uiState.isSpeaking) {
                                 onInterruptAndListen()
@@ -587,6 +598,55 @@ fun SpeakingIndicator(onStop: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun GatewayStatusPill(
+    connectionState: ConnectionState,
+    isHealthOk: Boolean,
+    onRetry: () -> Unit
+) {
+    val (text, color) = when {
+        connectionState == ConnectionState.CONNECTING -> stringResource(R.string.gateway_connecting) to MaterialTheme.colorScheme.secondary
+        connectionState == ConnectionState.RECONNECTING -> stringResource(R.string.gateway_reconnecting) to MaterialTheme.colorScheme.secondary
+        !isHealthOk -> stringResource(R.string.gateway_error) to MaterialTheme.colorScheme.error
+        connectionState == ConnectionState.CONNECTED -> stringResource(R.string.gateway_connected) to Color(0xFF4CAF50)
+        else -> stringResource(R.string.gateway_disconnected) to MaterialTheme.colorScheme.outline
+    }
+
+    Surface(
+        color = color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)),
+        modifier = Modifier.clickable(enabled = !isHealthOk || connectionState == ConnectionState.DISCONNECTED) { onRetry() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(color, CircleShape)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = color
+            )
+            if (!isHealthOk || connectionState == ConnectionState.DISCONNECTED) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "(${stringResource(R.string.retry)})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun AgentSelector(
     agents: List<AgentInfo>,
     selectedAgentId: String?,
@@ -670,8 +730,12 @@ fun ChatInputArea(
     onSend: () -> Unit,
     isListening: Boolean,
     isSpeaking: Boolean = false,
+    connectionState: ConnectionState = ConnectionState.CONNECTED,
+    isGatewayHealthOk: Boolean = true,
     onMicClick: () -> Unit
 ) {
+    val isGatewayOk = connectionState == ConnectionState.CONNECTED && isGatewayHealthOk
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -706,9 +770,11 @@ fun ChatInputArea(
 
         FloatingActionButton(
             onClick = {
-                if (value.isBlank()) onMicClick() else onSend()
+                if (isGatewayOk || isListening || isSpeaking) {
+                    if (value.isBlank()) onMicClick() else onSend()
+                }
             },
-            containerColor = fabColor,
+            containerColor = if (isGatewayOk || isListening || isSpeaking) fabColor else MaterialTheme.colorScheme.surfaceVariant,
             shape = CircleShape
         ) {
             Icon(
