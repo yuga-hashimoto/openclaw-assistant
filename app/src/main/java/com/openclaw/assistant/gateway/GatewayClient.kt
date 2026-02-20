@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.openclaw.assistant.utils.SslUtils
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,6 +107,7 @@ class GatewayClient(context: android.content.Context) {
     private var desiredPort: Int = 18789
     private var desiredToken: String? = null
     private var desiredUseTls: Boolean = false
+    private var desiredTlsFingerprint: String? = null
 
     private var runLoopJob: Job? = null
     private var currentSocket: WebSocket? = null
@@ -123,11 +125,12 @@ class GatewayClient(context: android.content.Context) {
 
     // --- Public API ---
 
-    fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false) {
+    fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false, tlsFingerprint: String? = null) {
         desiredHost = host
         desiredPort = port
         desiredToken = token
         desiredUseTls = useTls
+        desiredTlsFingerprint = tlsFingerprint
 
         if (runLoopJob == null) {
             runLoopJob = scope.launch { runLoop() }
@@ -253,7 +256,7 @@ class GatewayClient(context: android.content.Context) {
                 else
                     ConnectionState.RECONNECTING
 
-                connectOnce(host, desiredPort, desiredToken, desiredUseTls)
+                connectOnce(host, desiredPort, desiredToken, desiredUseTls, desiredTlsFingerprint)
                 attempt = 0
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -270,7 +273,7 @@ class GatewayClient(context: android.content.Context) {
         }
     }
 
-    private suspend fun connectOnce(host: String, port: Int, token: String?, useTls: Boolean) {
+    private suspend fun connectOnce(host: String, port: Int, token: String?, useTls: Boolean, tlsFingerprint: String? = null) {
         isClosed.set(false)
         connectDeferred = CompletableDeferred()
         closeDeferred = CompletableDeferred()
@@ -278,10 +281,17 @@ class GatewayClient(context: android.content.Context) {
 
         val scheme = if (useTls) "wss" else "ws"
         val url = "$scheme://$host:$port"
-        Log.e(TAG, "Connecting to $url")
+        Log.e(TAG, "Connecting to $url" + (if (tlsFingerprint != null) " with fingerprint pinning" else ""))
 
         val request = Request.Builder().url(url).build()
-        currentSocket = httpClient.newWebSocket(request, WsListener())
+
+        val clientForThisConnection = if (useTls && !tlsFingerprint.isNullOrBlank()) {
+            SslUtils.createPinnedClient(httpClient, tlsFingerprint)
+        } else {
+            httpClient
+        }
+
+        currentSocket = clientForThisConnection.newWebSocket(request, WsListener())
 
         try {
             connectDeferred?.await()
