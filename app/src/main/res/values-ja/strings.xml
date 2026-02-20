@@ -84,6 +84,11 @@
     <string name="auto_start_mic">AI発話後に自動でマイクを起動</string>
     <string name="speech_silence_timeout">無音タイムアウト</string>
     <string name="speech_silence_timeout_desc">発話後の待機時間</string>
+    <string name="speech_language_label">音声言語</string>
+    <string name="speech_language_desc">音声認識と応答の言語</string>
+    <string name="conversation_section">会話</string>
+    <string name="speech_language_system_default">システムデフォルト</string>
+    <string name="speech_language_loading">言語を読み込み中…</string>
     <string name="thinking_sound">思考中の音</string>
     <string name="thinking_sound_desc">AI思考中に音を鳴らす</string>
     <string name="activation_phrase">起動フレーズ</string>

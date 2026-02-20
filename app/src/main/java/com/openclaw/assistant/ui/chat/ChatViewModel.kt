@@ -331,7 +331,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e(TAG, "Starting speechManager.startListening(), isListening=true")
                     _uiState.update { it.copy(isListening = true, partialText = "") }
 
-                    speechManager.startListening(null, settings.speechSilenceTimeout).collect { result ->
+                    speechManager.startListening(settings.speechLanguage.ifEmpty { null }, settings.speechSilenceTimeout).collect { result ->
                         Log.e(TAG, "SpeechResult: $result")
                         when (result) {
                             is SpeechResult.Ready -> {

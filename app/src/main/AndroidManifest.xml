@@ -23,10 +23,13 @@
     <!-- Start service on boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Required to detect other TTS engines (Android 11+) -->
+    <!-- Required to detect TTS engines and speech recognizer languages (Android 11+) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 

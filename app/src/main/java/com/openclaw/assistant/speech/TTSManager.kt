@@ -79,7 +79,7 @@ class TTSManager(private val context: Context) {
 
     private fun onInitSuccess() {
         isInitialized = true
-        TTSUtils.setupVoice(tts, settings.ttsSpeed)
+        TTSUtils.setupVoice(tts, settings.ttsSpeed, settings.speechLanguage.ifEmpty { null })
         pendingSpeak?.invoke()
         pendingSpeak = null
     }

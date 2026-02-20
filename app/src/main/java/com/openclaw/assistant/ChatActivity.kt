@@ -157,7 +157,7 @@ class ChatActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         Log.e(TAG, "TTS onInit callback, status=$status (SUCCESS=${TextToSpeech.SUCCESS})")
         if (status == TextToSpeech.SUCCESS) {
-            TTSUtils.setupVoice(tts, settings.ttsSpeed)
+            TTSUtils.setupVoice(tts, settings.ttsSpeed, settings.speechLanguage.ifEmpty { null })
             
             // Pass TTS to ViewModel
             tts?.let { viewModel.setTTS(it) }

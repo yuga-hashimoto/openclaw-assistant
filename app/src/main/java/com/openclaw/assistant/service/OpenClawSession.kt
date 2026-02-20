@@ -292,7 +292,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 }
 
                 val listenResult = withTimeoutOrNull(15_000L) {
-                    speechManager.startListening(null, settings.speechSilenceTimeout).collectLatest { result ->
+                    speechManager.startListening(settings.speechLanguage.ifEmpty { null }, settings.speechSilenceTimeout).collectLatest { result ->
                         when (result) {
                             is SpeechResult.Ready -> {
                                 currentState.value = AssistantState.LISTENING

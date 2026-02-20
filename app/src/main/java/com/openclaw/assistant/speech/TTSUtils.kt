@@ -15,8 +15,12 @@ object TTSUtils {
     /**
      * ロケールと高品質な音声のセットアップ
      */
-    fun setupVoice(tts: TextToSpeech?, speed: Float) {
-        val currentLocale = Locale.getDefault()
+    fun setupVoice(tts: TextToSpeech?, speed: Float, languageTag: String? = null) {
+        val currentLocale = if (!languageTag.isNullOrEmpty()) {
+            Locale.forLanguageTag(languageTag)
+        } else {
+            Locale.getDefault()
+        }
         Log.e(TAG, "Current system locale: $currentLocale")
 
         // エンジン情報をログ出力
