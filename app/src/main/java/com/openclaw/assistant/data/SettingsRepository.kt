@@ -110,6 +110,28 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_TTS_ENGINE, "") ?: ""
         set(value) = prefs.edit().putString(KEY_TTS_ENGINE, value).apply()
 
+    // Voice Output Mode (system or external)
+    var voiceOutputMode: String
+        get() = prefs.getString(KEY_VOICE_OUTPUT_MODE, VOICE_MODE_SYSTEM) ?: VOICE_MODE_SYSTEM
+        set(value) = prefs.edit().putString(KEY_VOICE_OUTPUT_MODE, value).apply()
+
+    // External Voice Settings
+    var externalVoiceApiKey: String
+        get() = prefs.getString(KEY_EXTERNAL_VOICE_API_KEY, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_EXTERNAL_VOICE_API_KEY, value).apply()
+
+    var externalVoiceId: String
+        get() = prefs.getString(KEY_EXTERNAL_VOICE_ID, "default") ?: "default"
+        set(value) = prefs.edit().putString(KEY_EXTERNAL_VOICE_ID, value).apply()
+
+    var externalVoiceModel: String
+        get() = prefs.getString(KEY_EXTERNAL_VOICE_MODEL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_EXTERNAL_VOICE_MODEL, value).apply()
+
+    var externalVoiceFormat: String
+        get() = prefs.getString(KEY_EXTERNAL_VOICE_FORMAT, "mp3") ?: "mp3"
+        set(value) = prefs.edit().putString(KEY_EXTERNAL_VOICE_FORMAT, value).apply()
+
     // Gateway Port for WebSocket agent list connection (default 18789)
 
     var gatewayPort: Int
@@ -190,6 +212,11 @@ class SettingsRepository(context: Context) {
         private const val KEY_CONTINUOUS_MODE = "continuous_mode"
         private const val KEY_TTS_SPEED = "tts_speed"
         private const val KEY_TTS_ENGINE = "tts_engine"
+        private const val KEY_VOICE_OUTPUT_MODE = "voice_output_mode"
+        private const val KEY_EXTERNAL_VOICE_API_KEY = "external_voice_api_key"
+        private const val KEY_EXTERNAL_VOICE_ID = "external_voice_id"
+        private const val KEY_EXTERNAL_VOICE_MODEL = "external_voice_model"
+        private const val KEY_EXTERNAL_VOICE_FORMAT = "external_voice_format"
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_DEFAULT_AGENT_ID = "default_agent_id"
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
@@ -204,6 +231,9 @@ class SettingsRepository(context: Context) {
         const val WAKE_WORD_CUSTOM = "custom"
         
         const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+
+        const val VOICE_MODE_SYSTEM = "system"
+        const val VOICE_MODE_EXTERNAL = "external"
 
 
 

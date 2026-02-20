@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,6 +72,11 @@ fun SettingsScreen(
     var authToken by remember { mutableStateOf(settings.authToken) }
     var defaultAgentId by remember { mutableStateOf(settings.defaultAgentId) }
     var ttsEnabled by remember { mutableStateOf(settings.ttsEnabled) }
+    var voiceOutputMode by remember { mutableStateOf(settings.voiceOutputMode) }
+    var externalVoiceApiKey by remember { mutableStateOf(settings.externalVoiceApiKey) }
+    var externalVoiceId by remember { mutableStateOf(settings.externalVoiceId) }
+    var externalVoiceModel by remember { mutableStateOf(settings.externalVoiceModel) }
+    var externalVoiceFormat by remember { mutableStateOf(settings.externalVoiceFormat) }
     var ttsSpeed by remember { mutableStateOf(settings.ttsSpeed) }
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
@@ -103,6 +109,7 @@ fun SettingsScreen(
     var ttsEngine by remember { mutableStateOf(settings.ttsEngine) }
     var availableEngines by remember { mutableStateOf<List<com.openclaw.assistant.speech.TTSEngineUtils.EngineInfo>>(emptyList()) }
     var showEngineMenu by remember { mutableStateOf(false) }
+    var showVoiceModeMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         availableEngines = com.openclaw.assistant.speech.TTSEngineUtils.getAvailableEngines(context)
@@ -170,6 +177,11 @@ fun SettingsScreen(
                             settings.authToken = authToken.trim()
                             settings.defaultAgentId = defaultAgentId
                             settings.ttsEnabled = ttsEnabled
+                            settings.voiceOutputMode = voiceOutputMode
+                            settings.externalVoiceApiKey = externalVoiceApiKey
+                            settings.externalVoiceId = externalVoiceId
+                            settings.externalVoiceModel = externalVoiceModel
+                            settings.externalVoiceFormat = externalVoiceFormat
                             settings.ttsSpeed = ttsSpeed
                             settings.ttsEngine = ttsEngine
                             settings.continuousMode = continuousMode
@@ -583,91 +595,232 @@ fun SettingsScreen(
                     if (ttsEnabled) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
 
-                        // TTS Engine Selection
+                        // Voice Output Mode Selection
                         ExposedDropdownMenuBox(
-                            expanded = showEngineMenu,
-                            onExpandedChange = { showEngineMenu = it }
+                            expanded = showVoiceModeMenu,
+                            onExpandedChange = { showVoiceModeMenu = it }
                         ) {
-                            val currentLabel = if (ttsEngine.isEmpty()) {
-                                stringResource(R.string.tts_engine_auto)
-                            } else {
-                                availableEngines.find { it.name == ttsEngine }?.label ?: ttsEngine
+                            val currentLabel = when (voiceOutputMode) {
+                                SettingsRepository.VOICE_MODE_EXTERNAL -> stringResource(R.string.voice_mode_external)
+                                else -> stringResource(R.string.voice_mode_system)
                             }
 
                             OutlinedTextField(
                                 value = currentLabel,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text(stringResource(R.string.tts_engine_label)) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showEngineMenu) },
+                                label = { Text(stringResource(R.string.voice_output_mode_label)) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showVoiceModeMenu) },
                                 modifier = Modifier.fillMaxWidth().menuAnchor()
                             )
 
                             ExposedDropdownMenu(
-                                expanded = showEngineMenu,
-                                onDismissRequest = { showEngineMenu = false }
+                                expanded = showVoiceModeMenu,
+                                onDismissRequest = { showVoiceModeMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.tts_engine_auto)) },
+                                    text = { Text(stringResource(R.string.voice_mode_system)) },
                                     onClick = {
-                                        ttsEngine = ""
-                                        showEngineMenu = false
+                                        voiceOutputMode = SettingsRepository.VOICE_MODE_SYSTEM
+                                        showVoiceModeMenu = false
                                     },
                                     leadingIcon = {
-                                        if (ttsEngine.isEmpty()) {
+                                        if (voiceOutputMode == SettingsRepository.VOICE_MODE_SYSTEM) {
                                             Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.voice_mode_external)) },
+                                    onClick = {
+                                        voiceOutputMode = SettingsRepository.VOICE_MODE_EXTERNAL
+                                        showVoiceModeMenu = false
+                                    },
+                                    leadingIcon = {
+                                        if (voiceOutputMode == SettingsRepository.VOICE_MODE_EXTERNAL) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                )
+                            }
+                        }
 
-                                availableEngines.forEach { engine ->
+                        if (voiceOutputMode == SettingsRepository.VOICE_MODE_SYSTEM) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            // TTS Engine Selection
+                            ExposedDropdownMenuBox(
+                                expanded = showEngineMenu,
+                                onExpandedChange = { showEngineMenu = it }
+                            ) {
+                                val currentLabel = if (ttsEngine.isEmpty()) {
+                                    stringResource(R.string.tts_engine_auto)
+                                } else {
+                                    availableEngines.find { it.name == ttsEngine }?.label ?: ttsEngine
+                                }
+
+                                OutlinedTextField(
+                                    value = currentLabel,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text(stringResource(R.string.tts_engine_label)) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showEngineMenu) },
+                                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = showEngineMenu,
+                                    onDismissRequest = { showEngineMenu = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text(engine.label) },
+                                        text = { Text(stringResource(R.string.tts_engine_auto)) },
                                         onClick = {
-                                            ttsEngine = engine.name
+                                            ttsEngine = ""
                                             showEngineMenu = false
                                         },
                                         leadingIcon = {
-                                            if (ttsEngine == engine.name) {
+                                            if (ttsEngine.isEmpty()) {
                                                 Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                             }
                                         }
                                     )
+
+                                    availableEngines.forEach { engine ->
+                                        DropdownMenuItem(
+                                            text = { Text(engine.label) },
+                                            onClick = {
+                                                ttsEngine = engine.name
+                                                showEngineMenu = false
+                                            },
+                                            leadingIcon = {
+                                                if (ttsEngine == engine.name) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        // Voice Speed (only if Google TTS)
-                        val effectiveEngine = if (ttsEngine.isEmpty()) {
-                            com.openclaw.assistant.speech.TTSEngineUtils.getDefaultEngine(context)
-                        } else {
-                            ttsEngine
-                        }
-                        val isGoogleTTS = effectiveEngine == SettingsRepository.GOOGLE_TTS_PACKAGE
+                            // Voice Speed (only if Google TTS)
+                            val effectiveEngine = if (ttsEngine.isEmpty()) {
+                                com.openclaw.assistant.speech.TTSEngineUtils.getDefaultEngine(context)
+                            } else {
+                                ttsEngine
+                            }
+                            val isGoogleTTS = effectiveEngine == SettingsRepository.GOOGLE_TTS_PACKAGE
 
-                        if (isGoogleTTS) {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            if (isGoogleTTS) {
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(stringResource(R.string.voice_speed), style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    text = "%.1fx".format(ttsSpeed),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(stringResource(R.string.voice_speed), style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = "%.1fx".format(ttsSpeed),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                Slider(
+                                    value = ttsSpeed,
+                                    onValueChange = { ttsSpeed = it },
+                                    valueRange = 0.5f..3.0f,
+                                    steps = 24,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
-
-                            Slider(
-                                value = ttsSpeed,
-                                onValueChange = { ttsSpeed = it },
-                                valueRange = 0.5f..3.0f,
-                                steps = 24,
-                                modifier = Modifier.fillMaxWidth()
+                        } else {
+                            // External Provider Fields
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = stringResource(R.string.external_provider_settings),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            var showExternalApiKey by remember { mutableStateOf(false) }
+                            OutlinedTextField(
+                                value = externalVoiceApiKey,
+                                onValueChange = { externalVoiceApiKey = it.trim() },
+                                label = { Text(stringResource(R.string.api_key_label)) },
+                                leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+                                trailingIcon = {
+                                    IconButton(onClick = { showExternalApiKey = !showExternalApiKey }) {
+                                        Icon(
+                                            if (showExternalApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (showExternalApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = externalVoiceId,
+                                onValueChange = { externalVoiceId = it.trim() },
+                                label = { Text(stringResource(R.string.voice_id_label)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = externalVoiceModel,
+                                onValueChange = { externalVoiceModel = it.trim() },
+                                label = { Text("Model ID (Optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Test Voice Output Button
+                        var isTestingVoice by remember { mutableStateOf(false) }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    isTestingVoice = true
+
+                                    // Temporarily apply current UI settings for testing
+                                    val originalMode = settings.voiceOutputMode
+                                    val originalApiKey = settings.externalVoiceApiKey
+                                    val originalVoiceId = settings.externalVoiceId
+
+                                    settings.voiceOutputMode = voiceOutputMode
+                                    settings.externalVoiceApiKey = externalVoiceApiKey
+                                    settings.externalVoiceId = externalVoiceId
+
+                                    val ttsManager = com.openclaw.assistant.speech.TTSManager(context)
+                                    ttsManager.speak(context.getString(R.string.test_voice_text))
+
+                                    // Restore original settings (user must click Save to persist)
+                                    settings.voiceOutputMode = originalMode
+                                    settings.externalVoiceApiKey = originalApiKey
+                                    settings.externalVoiceId = originalVoiceId
+
+                                    delay(500)
+                                    isTestingVoice = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isTestingVoice
+                        ) {
+                            if (isTestingVoice) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.test_voice_output))
+                            }
                         }
                     }
 

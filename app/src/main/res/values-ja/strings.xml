@@ -76,6 +76,16 @@
     <string name="voice">音声</string>
     <string name="wake_word">ウェイクワード</string>
     <string name="voice_output">音声出力</string>
+    <string name="voice_output_mode_label">出力モード</string>
+    <string name="voice_mode_system">システムTTS</string>
+    <string name="voice_mode_external">外部プロバイダー</string>
+    <string name="external_provider_settings">外部プロバイダー設定</string>
+    <string name="api_key_label">APIキー</string>
+    <string name="voice_id_label">ボイスID / モデルID</string>
+    <string name="output_format_label">出力形式</string>
+    <string name="test_voice_output">音声出力をテスト</string>
+    <string name="test_voice_text">これはOpenClaw音声出力システムのテストです。</string>
+    <string name="active_provider_label">有効なプロバイダー</string>
     <string name="voice_speed">読み上げ速度</string>
     <string name="tts_engine_label">TTSエンジン</string>
     <string name="tts_engine_auto">自動 (デフォルト)</string>
