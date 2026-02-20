@@ -162,4 +162,9 @@
     <string name="pairing_required_desc">このデバイスはまだサーバーで承認されていません。サーバーで以下のコマンドを実行して承認してください：</string>
     <string name="pairing_copy_command">コマンドをコピー</string>
     <string name="pairing_command_copied">コマンドをクリップボードにコピーしました</string>
+
+    <!-- Support Section -->
+    <string name="support_section">サポート</string>
+    <string name="report_issue">問題を報告</string>
+    <string name="report_issue_desc">バグの報告や機能のリクエストはこちらから（GitHub）</string>
 </resources>

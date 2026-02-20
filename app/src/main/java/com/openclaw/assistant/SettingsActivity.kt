@@ -1,5 +1,7 @@
 package com.openclaw.assistant
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -29,6 +31,7 @@ import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
+import com.openclaw.assistant.utils.SystemInfoProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -806,6 +809,53 @@ fun SettingsScreen(
                                 Text(stringResource(R.string.custom_wake_word_help), color = Color.Gray, fontSize = 12.sp)
                             }
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // === SUPPORT SECTION ===
+            Text(
+                text = stringResource(R.string.support_section),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(R.string.report_issue),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.report_issue_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val systemInfo = SystemInfoProvider.getSystemInfoReport(context, settings)
+                            val body = "\n\n$systemInfo"
+                            val uri = Uri.parse("https://github.com/yuga-hashimoto/openclaw-assistant/issues/new")
+                                .buildUpon()
+                                .appendQueryParameter("body", body)
+                                .build()
+                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.BugReport, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.report_issue))
                     }
                 }
             }

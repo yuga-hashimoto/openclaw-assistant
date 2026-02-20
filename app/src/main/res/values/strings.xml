@@ -194,4 +194,9 @@
     <string name="pairing_required_desc">Your device is not yet approved by the server. Please run the following command on your server to approve it:</string>
     <string name="pairing_copy_command">Copy Command</string>
     <string name="pairing_command_copied">Command copied to clipboard</string>
+
+    <!-- Support Section -->
+    <string name="support_section">Support</string>
+    <string name="report_issue">Report Issue</string>
+    <string name="report_issue_desc">Found a bug or have a feature request? Let us know on GitHub.</string>
 </resources>
