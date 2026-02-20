@@ -3,16 +3,10 @@ name: Jules from Issue Label
 on:
   issues:
     types: [labeled]
-  workflow_dispatch:
-    inputs:
-      issue_number:
-        description: 'Issue number to trigger Jules for'
-        required: true
-        type: string
 
 jobs:
   create-jules-session:
-    if: (github.event_name == 'issues' && github.event.label.name == 'jules' && github.event.issue.state == 'open') || github.event_name == 'workflow_dispatch'
+    if: github.event.label.name == 'jules' && github.event.issue.state == 'open'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,7 +16,7 @@ jobs:
       - name: Create Jules session with API key fallback
         id: jules
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO_FULL: ${{ github.repository }}
@@ -37,13 +31,6 @@ jobs:
             exit 1
           fi
 
-
-          # For manual dispatch, fetch issue title/body from GitHub API
-          if [ -z "${ISSUE_TITLE:-}" ] || [ -z "${ISSUE_BODY:-}" ]; then
-            ISSUE_JSON=$(gh api "repos/${REPO_FULL}/issues/${ISSUE_NUMBER}")
-            ISSUE_TITLE=$(printf '%s' "$ISSUE_JSON" | jq -r '.title')
-            ISSUE_BODY=$(printf '%s' "$ISSUE_JSON" | jq -r '.body // ""')
-          fi
           TITLE="Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
           BODY_TRUNCATED=$(printf '%s' "${ISSUE_BODY:-}" | python3 -c 'import sys;print(sys.stdin.read()[:2000])')
           PROMPT="Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}\n\n${BODY_TRUNCATED}"
