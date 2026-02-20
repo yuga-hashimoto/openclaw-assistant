@@ -138,6 +138,18 @@
     <string name="menu">メニュー</string>
     <string name="back">戻る</string>
 
+    <!-- File Attachment -->
+    <string name="attach_file">添付</string>
+    <string name="camera">カメラ</string>
+    <string name="gallery">ギャラリー</string>
+    <string name="choose_file">ファイルを選択</string>
+    <string name="remove_attachment">削除</string>
+    <string name="attached_image">添付画像</string>
+    <string name="file_too_large">ファイルが大きすぎます（最大4MB）</string>
+    <string name="camera_permission_required">写真を撮影するにはカメラの権限が必要です</string>
+    <string name="camera_not_available">このデバイスではカメラが利用できません</string>
+    <string name="file_read_error">選択したファイルを読み込めませんでした</string>
+
     <!-- Error Messages -->
     <string name="error_speech_input_timeout">音声入力がありませんでした</string>
 

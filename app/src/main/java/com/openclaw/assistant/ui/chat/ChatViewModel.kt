@@ -1,6 +1,7 @@
 package com.openclaw.assistant.ui.chat
 
 import android.app.Application
+import android.net.Uri
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -13,12 +14,16 @@ import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.SpeechResult
+import com.openclaw.assistant.util.AttachmentData
+import com.openclaw.assistant.util.ImageCompressor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.util.UUID
@@ -30,7 +35,10 @@ data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
     val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val attachmentUri: String? = null,
+    val attachmentMimeType: String? = null,
+    val attachmentFileName: String? = null
 )
 
 data class ChatUiState(
@@ -40,6 +48,9 @@ data class ChatUiState(
     val isSpeaking: Boolean = false,
     val error: String? = null,
     val partialText: String = "", // For real-time speech transcription
+    val pendingAttachmentUri: String? = null,
+    val pendingAttachmentMimeType: String? = null,
+    val pendingAttachmentFileName: String? = null,
     val availableAgents: List<AgentInfo> = emptyList(),
     val selectedAgentId: String? = null, // null = use default from settings
     val defaultAgentId: String = "main", // From settings, for display when agent list unavailable
@@ -89,6 +100,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Pending attachment for next send
+    private var pendingAttachment: AttachmentData? = null
+
     // Messages Flow - mapped from current Session ID
     private val _messagesFlow = _currentSessionId.flatMapLatest { sessionId ->
          if (sessionId != null) {
@@ -98,7 +112,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                          id = entity.id,
                          text = entity.content,
                          isUser = entity.isUser,
-                         timestamp = entity.timestamp
+                         timestamp = entity.timestamp,
+                         attachmentUri = entity.attachmentUri,
+                         attachmentMimeType = entity.attachmentMimeType,
+                         attachmentFileName = entity.attachmentFileName
                      )
                  }
              }
@@ -229,6 +246,39 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         isTTSReady = true
     }
 
+    fun setPendingAttachment(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val data = withContext(Dispatchers.IO) {
+                ImageCompressor.processAttachment(context, uri)
+            }
+            if (data != null) {
+                pendingAttachment = data
+                _uiState.update {
+                    it.copy(
+                        pendingAttachmentUri = uri.toString(),
+                        pendingAttachmentMimeType = data.mimeType,
+                        pendingAttachmentFileName = data.fileName
+                    )
+                }
+            } else {
+                clearPendingAttachment()
+                _uiState.update { it.copy(error = context.getString(com.openclaw.assistant.R.string.file_too_large)) }
+            }
+        }
+    }
+
+    fun clearPendingAttachment() {
+        pendingAttachment = null
+        _uiState.update {
+            it.copy(
+                pendingAttachmentUri = null,
+                pendingAttachmentMimeType = null,
+                pendingAttachmentFileName = null
+            )
+        }
+    }
+
     fun setAgent(agentId: String?) {
         _uiState.update { it.copy(selectedAgentId = agentId) }
     }
@@ -241,12 +291,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendMessage(text: String) {
-        if (text.isBlank()) return
+        val attachment = pendingAttachment
+        if (text.isBlank() && attachment == null) return
 
         // Ensure we have a session
         val sessionId = _currentSessionId.value ?: return
 
-        _uiState.update { it.copy(isThinking = true) }
+        // Capture URI before clearing
+        val attachmentUriStr = _uiState.value.pendingAttachmentUri
+
+        // Consume pending attachment
+        pendingAttachment = null
+        _uiState.update {
+            it.copy(
+                isThinking = true,
+                pendingAttachmentUri = null,
+                pendingAttachmentMimeType = null,
+                pendingAttachmentFileName = null
+            )
+        }
         if (lastInputWasVoice) {
             toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 150)
         }
@@ -254,9 +317,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                // Save User Message
-                chatRepository.addMessage(sessionId, text, isUser = true)
-                sendViaHttp(sessionId, text)
+                // Save User Message with attachment info
+                chatRepository.addMessage(
+                    sessionId = sessionId,
+                    text = text,
+                    isUser = true,
+                    attachmentUri = attachmentUriStr,
+                    attachmentMimeType = attachment?.mimeType,
+                    attachmentFileName = attachment?.fileName,
+                    attachmentBase64 = attachment?.base64
+                )
+
+                sendViaHttp(sessionId, text, attachment)
             } catch (e: Exception) {
                 stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, error = e.message) }
@@ -264,12 +336,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun sendViaHttp(sessionId: String, text: String) {
+    private suspend fun sendViaHttp(sessionId: String, text: String, attachment: AttachmentData? = null) {
         val result = apiClient.sendMessage(
             webhookUrl = settings.getChatCompletionsUrl(),
             message = text,
             sessionId = sessionId,
             authToken = settings.authToken.takeIf { it.isNotBlank() },
+            attachment = attachment,
             agentId = getEffectiveAgentId()
         )
 

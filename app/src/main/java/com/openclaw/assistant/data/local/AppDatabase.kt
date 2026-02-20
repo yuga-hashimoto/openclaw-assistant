@@ -8,7 +8,7 @@ import com.openclaw.assistant.data.local.dao.ChatDao
 import com.openclaw.assistant.data.local.entity.MessageEntity
 import com.openclaw.assistant.data.local.entity.SessionEntity
 
-@Database(entities = [SessionEntity::class, MessageEntity::class], version = 1, exportSchema = false)
+@Database(entities = [SessionEntity::class, MessageEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 

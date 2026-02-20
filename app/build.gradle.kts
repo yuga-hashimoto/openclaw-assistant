@@ -152,6 +152,9 @@ dependencies {
     implementation("com.google.crypto.tink:tink-android:1.10.0")
 
     
+    // Image Loading (Compose)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Markdown rendering
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.14.0")
 
