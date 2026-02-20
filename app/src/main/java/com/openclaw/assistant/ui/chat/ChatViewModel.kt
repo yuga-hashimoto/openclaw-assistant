@@ -288,6 +288,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 var attachmentPath: String? = null
                 var attachmentBase64: String? = null
+                var finalMimeType = attachmentMimeType
 
                 withContext(Dispatchers.IO) {
                     attachmentUri?.let { uri ->
@@ -321,6 +322,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                                 val bytes = outputStream.toByteArray()
                                 attachmentBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                                finalMimeType = "image/jpeg"
 
                                 if (scaledBitmap != bitmap) scaledBitmap.recycle()
                                 bitmap.recycle()
@@ -340,14 +342,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 // If it's a non-image file, we can't send it via Vision API,
                 // but we can at least mention it in the text.
-                val finalMessage = if (attachmentPath != null && attachmentMimeType?.startsWith("image/") != true) {
+                val finalMessage = if (attachmentPath != null && finalMimeType?.startsWith("image/") != true) {
                     val fileName = attachmentPath!!.substringAfterLast('/')
                     if (text.isNotBlank()) "$text\n\n[Attached file: $fileName]" else "[Attached file: $fileName]"
                 } else {
                     text
                 }
 
-                sendViaHttp(sessionId, finalMessage, attachmentBase64, attachmentMimeType)
+                Log.d(TAG, "Sending message with attachment: $finalMimeType, base64 length: ${attachmentBase64?.length ?: 0}")
+                sendViaHttp(sessionId, finalMessage, attachmentBase64, finalMimeType)
             } catch (e: Exception) {
                 stopThinkingSound()
                 _uiState.update { it.copy(isThinking = false, error = e.message) }

@@ -3,6 +3,7 @@ package com.openclaw.assistant.api
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.gson.Gson
 import com.google.gson.JsonArray
+import android.util.Log
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -47,7 +48,7 @@ class OpenClawClient {
         try {
             // OpenAI Chat Completions format for /v1/chat/completions
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw")
+                addProperty("model", "openclaw/voice-agent")
                 addProperty("user", sessionId)
                 val messagesArray = JsonArray()
                 val userMessage = JsonObject().apply {
@@ -74,11 +75,12 @@ class OpenClawClient {
             }
 
             val jsonBody = gson.toJson(requestBody)
-                .toRequestBody("application/json; charset=utf-8".toMediaType())
+            Log.d("OpenClawClient", "Request body size: ${jsonBody.length}")
+            val requestBodyObj = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
 
             val requestBuilder = Request.Builder()
                 .url(webhookUrl)
-                .post(jsonBody)
+                .post(requestBodyObj)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Accept", "application/json")
 
@@ -162,7 +164,7 @@ class OpenClawClient {
 
             // Fallback: POST with minimal OpenAI format
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw")
+                addProperty("model", "openclaw/voice-agent")
                 addProperty("user", "connection-test")
                 val messagesArray = JsonArray()
                 val testMessage = JsonObject().apply {
