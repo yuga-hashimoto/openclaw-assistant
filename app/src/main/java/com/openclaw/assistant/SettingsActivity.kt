@@ -384,7 +384,7 @@ fun SettingsScreen(
                                     val testUrl = webhookUrl.trimEnd('/').let { url ->
                                         if (url.contains("/v1/")) url else "$url/v1/chat/completions"
                                     }
-                                    val result = apiClient.testConnection(testUrl, authToken.trim())
+                                    val result = apiClient.testConnection(testUrl, authToken.trim(), defaultAgentId)
                                     result.fold(
                                         onSuccess = {
                                             testResult = TestResult(success = true, message = context.getString(R.string.connected))
