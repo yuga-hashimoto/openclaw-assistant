@@ -52,12 +52,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.service.HotwordService
+import com.openclaw.assistant.service.NodeForegroundService
 import com.openclaw.assistant.service.OpenClawAssistantService
 import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.speech.diagnostics.DiagnosticStatus
 import com.openclaw.assistant.speech.diagnostics.VoiceDiagnostic
 import com.openclaw.assistant.speech.diagnostics.VoiceDiagnostics
+import com.openclaw.assistant.ui.components.CollapsibleSection
+import com.openclaw.assistant.ui.components.ConnectionState
 import com.openclaw.assistant.ui.components.PairingRequiredCard
+import com.openclaw.assistant.ui.components.StatusIndicator
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 
 data class PermissionInfo(
@@ -286,9 +290,15 @@ fun MainScreen(
     onOpenAppSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val runtime = remember(context.applicationContext) {
+        (context.applicationContext as OpenClawApplication).nodeRuntime
+    }
     var isConfigured by remember { mutableStateOf(settings.isConfigured()) }
     var hotwordEnabled by remember { mutableStateOf(settings.hotwordEnabled) }
     var isAssistantSet by remember { mutableStateOf((context as? MainActivity)?.isAssistantActive() ?: false) }
+    val nodeConnected by runtime.isConnected.collectAsState()
+    val nodeStatusText by runtime.statusText.collectAsState()
+    val nodeForeground by runtime.isForeground.collectAsState()
     var showTroubleshooting by remember { mutableStateOf(false) }
     var showHowToUse by remember { mutableStateOf(false) }
     
@@ -387,9 +397,29 @@ fun MainScreen(
             }
 
             if (diagnostic != null) {
-                DiagnosticPanel(diagnostic, onRefreshDiagnostics)
+                CollapsibleSection(
+                    title = "Voice System Check",
+                    initiallyExpanded = diagnostic.sttStatus != DiagnosticStatus.READY || diagnostic.ttsStatus != DiagnosticStatus.READY
+                ) {
+                    DiagnosticPanel(diagnostic, onRefreshDiagnostics)
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
+
+            NodeStatusCard(
+                connected = nodeConnected,
+                status = nodeStatusText,
+                foreground = nodeForeground,
+                onConnect = { runtime.connectManual() },
+                onDisconnect = { runtime.disconnect() },
+                onToggleForeground = { enabled ->
+                    runtime.setForeground(enabled)
+                    if (enabled) NodeForegroundService.start(context) else NodeForegroundService.stop(context)
+                },
+                onOpenSettings = onOpenSettings
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(text = stringResource(R.string.activation_methods), fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(12.dp))
@@ -419,7 +449,7 @@ fun MainScreen(
 
 @Composable
 fun StatusCard(isConfigured: Boolean) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if (isConfigured) Color(0xFF4CAF50) else Color(0xFFFFC107))) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = if (isConfigured) Color(0xFF4CAF50) else Color(0xFFFFC107))) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
                 Icon(imageVector = if (isConfigured) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -435,10 +465,14 @@ fun StatusCard(isConfigured: Boolean) {
 
 @Composable
 fun DiagnosticPanel(diagnostic: VoiceDiagnostic, onRefresh: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Voice System Check", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Engines", fontWeight = FontWeight.Medium, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp)) }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -713,6 +747,105 @@ fun WarningCard(message: String, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Text(text = message, color = Color(0xFFE65100), modifier = Modifier.weight(1f))
             Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFFF9800))
+        }
+    }
+}
+
+@Composable
+fun NodeStatusCard(
+    connected: Boolean,
+    status: String,
+    foreground: Boolean,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    onToggleForeground: (Boolean) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val connState = if (connected) ConnectionState.Connected else ConnectionState.Disconnected
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (connected) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = if (connected) Color(0xFF4CAF50) else Color.Gray,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Device Node", style = MaterialTheme.typography.titleSmall)
+                }
+                StatusIndicator(
+                    state = connState,
+                    label = if (connected) "Connected" else "Offline"
+                )
+            }
+
+            if (status.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Foreground keepalive", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Keep the node running in background",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = foreground,
+                    onCheckedChange = onToggleForeground
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (connected) {
+                    OutlinedButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = onDisconnect
+                    ) {
+                        Text("Disconnect")
+                    }
+                } else {
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        onClick = onConnect
+                    ) {
+                        Text("Connect")
+                    }
+                }
+                OutlinedButton(onClick = onOpenSettings) {
+                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Settings")
+                }
+            }
         }
     }
 }

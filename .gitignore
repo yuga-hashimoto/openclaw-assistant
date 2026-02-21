@@ -6,3 +6,4 @@ build/
 
 *.keystore
 **/google-services.json
+firebase-debug.log
