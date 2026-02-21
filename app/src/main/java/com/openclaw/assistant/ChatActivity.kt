@@ -429,7 +429,10 @@ fun ChatScreen(
                                 DateHeader(item.dateText)
                             }
                             is ChatListItem.MessageItem -> {
-                                MessageBubble(message = item.message)
+                                MessageBubble(
+                                    message = item.message,
+                                    onAction = { onSendMessage(it) }
+                                )
                             }
                         }
                     }
@@ -473,7 +476,7 @@ fun DateHeader(dateText: String) {
 }
 
 @Composable
-fun MessageBubble(message: ChatMessage) {
+fun MessageBubble(message: ChatMessage, onAction: (String) -> Unit) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val containerColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
@@ -514,6 +517,52 @@ fun MessageBubble(message: ChatMessage) {
                                 markdown = message.text,
                                 color = contentColor
                             )
+
+                            // Check for approval commands
+                            val approvalRegex = remember(message.text) {
+                                Regex("""/(approve|allow-once|allow-always|deny)\b(?:\s+([a-zA-Z0-9]+)\b)?""")
+                            }
+                            val matches = remember(message.text) {
+                                approvalRegex.findAll(message.text).toList()
+                            }
+
+                            if (matches.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    matches.forEach { match ->
+                                        val command = match.value
+                                        val type = match.groupValues[1]
+                                        val label = when (type) {
+                                            "approve" -> stringResource(R.string.action_approve)
+                                            "allow-once" -> stringResource(R.string.action_allow_once)
+                                            "allow-always" -> stringResource(R.string.action_allow_always)
+                                            "deny" -> stringResource(R.string.action_deny)
+                                            else -> type.replaceFirstChar { it.uppercase() }
+                                        }
+
+                                        if (type == "deny") {
+                                            OutlinedButton(
+                                                onClick = { onAction(command) },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(label, fontSize = 12.sp)
+                                            }
+                                        } else {
+                                            Button(
+                                                onClick = { onAction(command) },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(label, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

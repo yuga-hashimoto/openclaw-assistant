@@ -211,4 +211,10 @@
     <string name="support_section">Support</string>
     <string name="report_issue">Report Issue</string>
     <string name="report_issue_desc">Found a bug or have a feature request? Let us know on GitHub.</string>
+
+    <!-- Approval Actions -->
+    <string name="action_approve">Approve</string>
+    <string name="action_deny">Deny</string>
+    <string name="action_allow_once">Allow Once</string>
+    <string name="action_allow_always">Allow Always</string>
 </resources>
