@@ -169,12 +169,15 @@ class GatewayClient(context: android.content.Context) {
      * Send a chat message via WebSocket RPC.
      * @return runId from the server
      */
-    suspend fun sendChat(sessionKey: String, message: String): String? {
+    suspend fun sendChat(sessionKey: String, message: String, thinkingLevel: String? = null): String? {
         val params = JsonObject().apply {
             addProperty("sessionKey", sessionKey)
             addProperty("message", message)
             addProperty("timeoutMs", 30_000)
             addProperty("idempotencyKey", UUID.randomUUID().toString())
+            if (!thinkingLevel.isNullOrBlank() && thinkingLevel != "off") {
+                addProperty("thinking", thinkingLevel)
+            }
         }
         val result = request("chat.send", params, timeoutMs = 35_000)
         if (!result.ok) {

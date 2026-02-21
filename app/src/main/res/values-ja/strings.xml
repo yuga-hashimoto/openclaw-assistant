@@ -134,6 +134,11 @@
     <string name="notification_mic_unavailable_content">他のアプリがマイクを使用中か、デバイスの設定を確認してください</string>
 
     <!-- Chat UI -->
+    <string name="thinking_level">思考レベル</string>
+    <string name="thinking_off">オフ</string>
+    <string name="thinking_low">低</string>
+    <string name="thinking_medium">中</string>
+    <string name="thinking_high">高</string>
     <string name="conversations_title">会話</string>
     <string name="new_chat">新規チャット</string>
     <string name="delete">削除</string>

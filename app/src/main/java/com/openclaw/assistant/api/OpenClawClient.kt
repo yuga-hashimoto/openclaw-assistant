@@ -34,7 +34,8 @@ class OpenClawClient {
         message: String,
         sessionId: String,
         authToken: String? = null,
-        agentId: String? = null
+        agentId: String? = null,
+        thinkingLevel: String? = null
     ): Result<OpenClawResponse> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -54,6 +55,10 @@ class OpenClawClient {
                 }
                 messagesArray.add(userMessage)
                 add("messages", messagesArray)
+
+                if (!thinkingLevel.isNullOrBlank() && thinkingLevel != "off") {
+                    addProperty("thinking", thinkingLevel)
+                }
             }
 
             val jsonBody = gson.toJson(requestBody)
@@ -71,6 +76,10 @@ class OpenClawClient {
 
             if (!agentId.isNullOrBlank()) {
                 requestBuilder.addHeader("x-openclaw-agent-id", agentId)
+            }
+
+            if (!thinkingLevel.isNullOrBlank() && thinkingLevel != "off") {
+                requestBuilder.addHeader("x-openclaw-thinking", thinkingLevel)
             }
 
             val request = requestBuilder.build()
