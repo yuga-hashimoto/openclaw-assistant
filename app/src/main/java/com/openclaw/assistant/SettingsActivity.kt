@@ -71,7 +71,7 @@ fun SettingsScreen(
     var continuousMode by remember { mutableStateOf(settings.continuousMode) }
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
-    var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat().coerceIn(1000f, 30000f)) }
+    var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat().coerceIn(5000f, 30000f)) }
     var speechLanguage by remember { mutableStateOf(settings.speechLanguage) }
     var thinkingSoundEnabled by remember { mutableStateOf(settings.thinkingSoundEnabled) }
 
@@ -731,8 +731,8 @@ fun SettingsScreen(
                     Slider(
                         value = speechSilenceTimeout,
                         onValueChange = { speechSilenceTimeout = it },
-                        valueRange = 1000f..30000f,
-                        steps = 29,
+                        valueRange = 5000f..30000f,
+                        steps = 4,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
