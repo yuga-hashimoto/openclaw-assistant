@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     id("com.android.application")
@@ -56,10 +57,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        
-
     }
-    
+
     tasks.register("printVersion") {
         doLast {
             println("Version Name: ${getTagName()}")
@@ -134,6 +133,15 @@ androidComponents {
                 val buildType = variant.buildType
                 output.outputFileName = "openclaw-${versionName}-${buildType}.apk"
             }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(1)
+            output.versionName.set("test")
+        }
     }
 }
 
