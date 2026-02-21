@@ -32,18 +32,26 @@ jobs:
           TITLE="Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
           PROMPT="Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
 
-  ${ISSUE_BODY:-}"
+          ${ISSUE_BODY:-}"
           jq -n --arg title "$TITLE" --arg prompt "$PROMPT" --arg source "sources/github/${REPO_FULL}" \
             '{title:$title,prompt:$prompt,automationMode:"AUTO_CREATE_PR",sourceContext:{source:$source,githubRepoContext:{startingBranch:"main"}}}' > /tmp/jules_payload.json
+          
           SUCCESS=0
           KEY_USED=""
           SESSION_ID=""
           RESP_FILE=/tmp/jules_resp.json
+          
           for KEY_IDX in 1 2 3; do
             KEY_VAR="JULES_API_KEY_${KEY_IDX}"
             KEY="${!KEY_VAR:-}"
             [ -z "$KEY" ] && continue
-            HTTP_CODE=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" -X POST "https://jules.googleapis.com/v1alpha/sessions" -H "Content-Type: application/json" -H "x-goog-api-key: $KEY" --data-binary @/tmp/jules_payload.json || true)
+            
+            HTTP_CODE=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" \
+              -X POST "https://jules.googleapis.com/v1alpha/sessions" \
+              -H "Content-Type: application/json" \
+              -H "x-goog-api-key: $KEY" \
+              --data-binary @/tmp/jules_payload.json || true)
+            
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
               SESSION_ID=$(jq -r '.id // empty' "$RESP_FILE")
               if [ -n "$SESSION_ID" ]; then
@@ -53,11 +61,13 @@ jobs:
               fi
             fi
           done
+          
           if [ "$SUCCESS" -ne 1 ]; then
             ERROR_MSG=$(jq -r '.error.message // .error.status // "Unknown error"' "$RESP_FILE" 2>/dev/null || echo "Unknown error")
             echo "error_message=${ERROR_MSG}" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          
           echo "session_id=${SESSION_ID}" >> "$GITHUB_OUTPUT"
           echo "key_used=${KEY_USED}" >> "$GITHUB_OUTPUT"
 
@@ -70,7 +80,12 @@ jobs:
           SESSION_ID: ${{ steps.jules.outputs.session_id }}
           KEY_USED: ${{ steps.jules.outputs.key_used }}
         run: |
-          gh api "repos/${REPO_FULL}/issues/${ISSUE_NUMBER}/comments" -f body="✅ Jules session created. Session ID: ${SESSION_ID}, Key: ${KEY_USED}, automationMode: AUTO_CREATE_PR" >/dev/null
+          gh api "repos/${REPO_FULL}/issues/${ISSUE_NUMBER}/comments" \
+            -f body="✅ Jules session created.
+          
+          - Session ID: \`${SESSION_ID}\`
+          - Key used: ${KEY_USED}
+          - automationMode: \`AUTO_CREATE_PR\`"
 
       - name: Comment failure
         if: steps.jules.outcome == 'failure'
@@ -80,5 +95,6 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ERROR_MESSAGE: ${{ steps.jules.outputs.error_message }}
         run: |
-          gh api "repos/${REPO_FULL}/issues/${ISSUE_NUMBER}/comments" -f body="❌ Jules session failed: ${ERROR_MESSAGE}" >/dev/null
+          gh api "repos/${REPO_FULL}/issues/${ISSUE_NUMBER}/comments" \
+            -f body="❌ Jules session failed: ${ERROR_MESSAGE}"
           exit 1
