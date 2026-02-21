@@ -12,6 +12,19 @@ object TTSUtils {
     private const val TAG = "TTSUtils"
     const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
 
+    private val emojiMap = mapOf(
+        "🌧️" to "rain",
+        "☔" to "umbrella",
+        "😊" to "smiling face",
+        "😂" to "face with tears of joy",
+        "❤️" to "heart",
+        "👍" to "thumbs up",
+        "🔥" to "fire",
+        "✨" to "sparkles",
+        "🚀" to "rocket",
+        "💡" to "idea"
+    )
+
     /**
      * Setup locale and high-quality voice
      */
@@ -115,6 +128,49 @@ object TTSUtils {
         
         // Organize consecutive newlines
         result = result.replace(Regex("\n{3,}"), "\n\n")
+
+        // Emojis and Symbols handling
+        val sb = StringBuilder()
+        var i = 0
+        while (i < result.length) {
+            val codePoint = result.codePointAt(i)
+            val count = Character.charCount(codePoint)
+            val symbol = result.substring(i, i + count)
+
+            if (Character.getType(codePoint).toByte() == Character.OTHER_SYMBOL) {
+                // Check for variation selector in the next position
+                var fullSymbol = symbol
+                if (i + count < result.length) {
+                    val nextCodePoint = result.codePointAt(i + count)
+                    if (nextCodePoint == 0xFE0F) {
+                        fullSymbol += "\uFE0F"
+                    }
+                }
+
+                val description = emojiMap[fullSymbol] ?: emojiMap[symbol]
+                if (description != null) {
+                    sb.append(" emoji $description ")
+                } else {
+                    sb.append(" emoji ")
+                }
+
+                if (fullSymbol.length > symbol.length) {
+                    i += Character.charCount(0xFE0F)
+                }
+            } else {
+                sb.append(symbol)
+            }
+            i += count
+        }
+        result = sb.toString()
+
+        // Stricter filtering of special characters
+        // Remove symbols that shouldn't be spoken by TTS
+        val specialCharsRegex = Regex("[|~^<>{}\\[\\]\\\\/]")
+        result = result.replace(specialCharsRegex, " ")
+
+        // Remove multiple spaces
+        result = result.replace(Regex("\\s{2,}"), " ")
         
         return result.trim()
     }

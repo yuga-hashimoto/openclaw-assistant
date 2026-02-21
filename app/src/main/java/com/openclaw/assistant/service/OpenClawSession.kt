@@ -472,8 +472,31 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         val cleanText = TTSUtils.stripMarkdownForSpeech(text)
 
         speakingJob = scope.launch {
+            // Launch background recognition for "talk over" support
+            val talkOverJob = launch {
+                try {
+                    // Initial delay to prevent immediate self-interruption
+                    delay(1500)
+                    Log.d(TAG, "Talk-over detection activated")
+
+                    // Use a separate collector to avoid interfering with the main state until speech is detected
+                    speechManager.startListening(settings.speechLanguage.ifEmpty { null }, settings.speechSilenceTimeout).collect { result ->
+                        if (result is SpeechResult.PartialResult) {
+                            Log.d(TAG, "User talk-over detected, interrupting TTS")
+                            // Switch back to Main thread if not already there to interrupt
+                            withContext(Dispatchers.Main) {
+                                interruptAndListen()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Talk-over detection stopped: ${e.message}")
+                }
+            }
+
             try {
                 val success = ttsManager.speak(cleanText)
+                talkOverJob.cancel()
 
                 // Abandon audio focus after TTS completes
                 abandonAudioFocus()
