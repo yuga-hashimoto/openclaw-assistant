@@ -256,10 +256,30 @@ fun ChatScreen(
         items
     }
 
-    // Scroll to bottom when new messages arrive
-    LaunchedEffect(groupedItems.size) {
-        if (groupedItems.isNotEmpty()) {
-            listState.animateScrollToItem(groupedItems.size - 1)
+    // Auto-scroll for new messages or major state changes
+    LaunchedEffect(groupedItems.size, uiState.isThinking, uiState.isSpeaking) {
+        val targetIndex = groupedItems.size +
+            (if (uiState.streamingAssistantText != null) 1 else 0) +
+            (if (uiState.isThinking) 1 else 0) +
+            (if (uiState.isSpeaking) 1 else 0)
+
+        if (targetIndex > 0) {
+            listState.animateScrollToItem(targetIndex - 1)
+        }
+    }
+
+    // Performance-optimized scroll for streaming updates: only scroll if already at bottom, and don't animate
+    LaunchedEffect(uiState.streamingAssistantText) {
+        if (uiState.streamingAssistantText != null) {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isNotEmpty()) {
+                val lastVisibleItem = visibleItems.last()
+                // If the user is near the bottom, keep them at the bottom
+                if (lastVisibleItem.index >= layoutInfo.totalItemsCount - 2) {
+                    listState.scrollToItem(layoutInfo.totalItemsCount - 1)
+                }
+            }
         }
     }
 
@@ -431,6 +451,19 @@ fun ChatScreen(
                             is ChatListItem.MessageItem -> {
                                 MessageBubble(message = item.message)
                             }
+                        }
+                    }
+
+                    if (uiState.streamingAssistantText != null) {
+                        item(key = "streaming_bubble") {
+                            MessageBubble(
+                                message = ChatMessage(
+                                    id = "streaming_assistant_msg",
+                                    text = uiState.streamingAssistantText,
+                                    isUser = false,
+                                    timestamp = uiState.streamingAssistantTimestamp
+                                )
+                            )
                         }
                     }
                     

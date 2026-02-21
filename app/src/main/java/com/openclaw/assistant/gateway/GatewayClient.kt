@@ -528,6 +528,12 @@ class GatewayClient(context: android.content.Context) {
                 errorMessage = payload.get("errorMessage")?.asString
             )
             Log.d(TAG, "Chat event: state=${event.state}, runId=${event.runId}")
+
+            // Clear streaming text on terminal states
+            if (event.state == "final" || event.state == "error" || event.state == "aborted") {
+                _streamingText.value = null
+            }
+
             _chatEvents.tryEmit(event)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse chat event: ${e.message}, json=${payloadJson.take(200)}")
@@ -555,9 +561,13 @@ class GatewayClient(context: android.content.Context) {
             Log.d(TAG, "Agent event: stream=${event.stream}, textLen=${streamData?.text?.length ?: 0}, phase=${streamData?.phase}")
             _agentEvents.tryEmit(event)
 
-            // Update streaming text for "assistant" stream
-            if (event.stream == "assistant" && !streamData?.text.isNullOrEmpty()) {
-                _streamingText.value = streamData?.text
+            // Update streaming text for "assistant" stream (accumulate deltas)
+            if (event.stream == "assistant") {
+                if (streamData?.phase == "start") {
+                    _streamingText.value = ""
+                } else if (!streamData?.text.isNullOrEmpty()) {
+                    _streamingText.value = (_streamingText.value ?: "") + streamData?.text
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse agent event: ${e.message}")

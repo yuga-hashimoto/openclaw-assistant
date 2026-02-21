@@ -38,6 +38,8 @@ data class ChatUiState(
     val isListening: Boolean = false,
     val isThinking: Boolean = false,
     val isSpeaking: Boolean = false,
+    val streamingAssistantText: String? = null,
+    val streamingAssistantTimestamp: Long = 0L,
     val error: String? = null,
     val partialText: String = "", // For real-time speech transcription
     val availableAgents: List<AgentInfo> = emptyList(),
@@ -112,6 +114,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _messagesFlow.collect { messages ->
                 _uiState.update { it.copy(messages = messages) }
+            }
+        }
+
+        // Observe streaming text from gateway
+        viewModelScope.launch {
+            gatewayClient.streamingText.collect { text ->
+                _uiState.update {
+                    it.copy(
+                        streamingAssistantText = text,
+                        streamingAssistantTimestamp = if (text != null && it.streamingAssistantText == null)
+                            System.currentTimeMillis() else it.streamingAssistantTimestamp,
+                        // Clear thinking state when streaming starts
+                        isThinking = if (text != null) false else it.isThinking
+                    )
+                }
             }
         }
 
