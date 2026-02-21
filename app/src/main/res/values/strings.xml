@@ -198,6 +198,16 @@
     <string name="pairing_required_desc">Your device is not yet approved by the server. Please run the following command on your server to approve it:</string>
     <string name="pairing_copy_command">Copy Command</string>
     <string name="pairing_command_copied">Command copied to clipboard</string>
+    <string name="pairing_device_id">Device ID: %s</string>
+    <string name="pairing_approve_command">Approve Command (Copy)</string>
+    <string name="pairing_reject_command">Reject Command (Copy)</string>
+    <string name="pairing_refresh_status">Refresh Status</string>
+    <string name="pairing_guide_title">How to approve this device:</string>
+    <string name="pairing_guide_step_1">1. Access your OpenClaw server terminal.</string>
+    <string name="pairing_guide_step_2">2. Paste and run the Approve command.</string>
+    <string name="pairing_guide_step_3">3. Once the server says \"Device approved\", tap Refresh Status below.</string>
+    <string name="pairing_troubleshooting_title">Troubleshooting</string>
+    <string name="pairing_troubleshooting_desc">• Ensure the Server URL in Settings is correct.\n• If the command fails, check if the openclaw CLI is installed.\n• You can also manually approve using: openclaw devices approve &lt;REQUEST_ID&gt;</string>
 
     <!-- Support Section -->
     <string name="support_section">Support</string>

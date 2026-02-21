@@ -166,6 +166,16 @@
     <string name="pairing_required_desc">このデバイスはまだサーバーで承認されていません。サーバーで以下のコマンドを実行して承認してください：</string>
     <string name="pairing_copy_command">コマンドをコピー</string>
     <string name="pairing_command_copied">コマンドをクリップボードにコピーしました</string>
+    <string name="pairing_device_id">デバイスID: %s</string>
+    <string name="pairing_approve_command">承認コマンドをコピー</string>
+    <string name="pairing_reject_command">拒否コマンドをコピー</string>
+    <string name="pairing_refresh_status">ステータスを更新</string>
+    <string name="pairing_guide_title">デバイスを承認する方法:</string>
+    <string name="pairing_guide_step_1">1. OpenClawサーバーのターミナルにアクセスします。</string>
+    <string name="pairing_guide_step_2">2. 承認コマンドを貼り付けて実行します。</string>
+    <string name="pairing_guide_step_3">3. サーバーで「Device approved」と表示されたら、下の「ステータスを更新」をタップします。</string>
+    <string name="pairing_troubleshooting_title">トラブルシューティング</string>
+    <string name="pairing_troubleshooting_desc">• 設定のサーバーURLが正しいか確認してください。\n• コマンドが失敗する場合は、openclaw CLIがインストールされているか確認してください。\n• 手動で承認する場合: openclaw devices approve &lt;REQUEST_ID&gt;</string>
 
     <!-- Support Section -->
     <string name="support_section">サポート</string>

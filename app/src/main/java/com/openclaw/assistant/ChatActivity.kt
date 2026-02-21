@@ -56,6 +56,7 @@ import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.ui.chat.ChatMessage
 import com.openclaw.assistant.ui.components.MarkdownText
+import com.openclaw.assistant.ui.components.PairingRequiredCard
 import com.openclaw.assistant.ui.chat.ChatUiState
 import com.openclaw.assistant.ui.chat.ChatViewModel
 import com.openclaw.assistant.gateway.AgentInfo
@@ -410,7 +411,7 @@ fun ChatScreen(
                 // Pairing Guidance
                 if (uiState.isPairingRequired && uiState.deviceId != null) {
                     Box(modifier = Modifier.padding(16.dp)) {
-                        PairingRequiredCard(deviceId = uiState.deviceId!!)
+                        PairingRequiredCard(deviceId = uiState.deviceId)
                     }
                 }
 

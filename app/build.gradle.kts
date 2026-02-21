@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     id("com.android.application")
@@ -55,10 +56,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        
-
     }
-    
+
     tasks.register("printVersion") {
         doLast {
             println("Version Name: ${getTagName()}")
@@ -119,6 +118,15 @@ android {
     }
 }
 
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(1)
+            output.versionName.set("test")
+        }
+    }
+}
+
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
@@ -126,7 +134,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.savedstate:savedstate-ktx:1.2.1")
     implementation("androidx.activity:activity-compose:1.8.2")
-    
+
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
@@ -134,30 +142,29 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
-    
+
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
-    
+
     // Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    
+
     // Vosk
     implementation("com.alphacephei:vosk-android:0.3.75")
 
     // Tink (Crypto)
     implementation("com.google.crypto.tink:tink-android:1.10.0")
 
-    
     // Markdown rendering
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.14.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

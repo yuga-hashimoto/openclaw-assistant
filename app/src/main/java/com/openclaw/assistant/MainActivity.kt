@@ -57,6 +57,7 @@ import com.openclaw.assistant.speech.TTSUtils
 import com.openclaw.assistant.speech.diagnostics.DiagnosticStatus
 import com.openclaw.assistant.speech.diagnostics.VoiceDiagnostic
 import com.openclaw.assistant.speech.diagnostics.VoiceDiagnostics
+import com.openclaw.assistant.ui.components.PairingRequiredCard
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 
 data class PermissionInfo(
@@ -369,7 +370,7 @@ fun MainScreen(
 
             // Show pairing required banner
             if (isPairingRequired && deviceId != null) {
-                PairingRequiredCard(deviceId = deviceId!!)
+                PairingRequiredCard(deviceId = deviceId)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -748,77 +749,6 @@ fun TroubleshootingDialog(onDismiss: () -> Unit) {
             Button(onClick = { context.startService(Intent(context, OpenClawAssistantService::class.java).apply { action = OpenClawAssistantService.ACTION_SHOW_ASSISTANT }) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text(stringResource(R.string.debug_force_start)) }
         }
     }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.got_it)) } })
-}
-
-@Composable
-fun PairingRequiredCard(deviceId: String) {
-    val context = LocalContext.current
-    val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
-    val oneCommand = "openclaw devices approve \$(openclaw devices list --json | python3 -c \"import sys, json; print(next((r['Request'] for r in json.load(sys.stdin)['pending'] if r['Device'] == '$deviceId'), 'NOT_FOUND'))\")"
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.SmartToy, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.pairing_required_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.pairing_required_desc),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SelectionContainer {
-                    Text(
-                        text = oneCommand,
-                        modifier = Modifier.padding(12.dp),
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    val clip = ClipData.newPlainText("OpenClaw Approval Command", oneCommand)
-                    clipboardManager.setPrimaryClip(clip)
-                    Toast.makeText(context, context.getString(R.string.pairing_command_copied), Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.align(Alignment.End),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                )
-            ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.pairing_copy_command))
-            }
-        }
-    }
 }
 
 @Composable
