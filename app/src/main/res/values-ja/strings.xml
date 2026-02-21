@@ -218,8 +218,10 @@
 
     <!-- Operator Offline Warning -->
     <string name="operator_offline_title">オペレーター権限が必要です</string>
-    <string name="operator_offline_message">デバイスは接続されていますが、AIに操作権限がありません。AIにオペレーター権限を付与するようお願いしてください。</string>
-    <string name="operator_offline_action">AIにお願いする</string>
+    <string name="operator_offline_message">デバイスは接続されていますが、AIに操作権限がありません。\n\nサーバー上で以下のコマンドを実行して、権限を付与してください：</string>
+    <string name="operator_offline_command">openclaw devices --scopes operator.read,operator.write approve %s</string>
+    <string name="operator_offline_copy">コマンドをコピー</string>
+    <string name="operator_offline_copied">クリップボードにコピーしました</string>
 
     <!-- Legacy Settings -->
     <string name="settings_legacy_title">レガシー接続 (Webhook)</string>

@@ -156,8 +156,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         }
                         if (ungranted.isNotEmpty()) {
                             permissionLauncher.launch(ungranted.toTypedArray())
+                            false
                         } else {
-                            // All granted already; shouldn't happen but just in case
+                            true
                         }
                     },
                     onOpenAppSettings = { openAppSettings() }
@@ -310,7 +311,7 @@ fun MainScreen(
     onOpenAssistantSettings: () -> Unit,
     onToggleHotword: (Boolean) -> Unit,
     onRefreshDiagnostics: () -> Unit,
-    onRequestPermissions: (List<String>) -> Unit = {},
+    onRequestPermissions: (List<String>) -> Boolean = { false },
     onOpenAppSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -388,14 +389,8 @@ fun MainScreen(
 
             // Show operator offline warning
             if (nodeStatusText == "Connected (operator offline)") {
-                OperatorOfflineCard(
-                    onAskAIToFix = {
-                        val intent = Intent(context, ChatActivity::class.java).apply {
-                            putExtra("INITIAL_MESSAGE", context.getString(R.string.fix_request_message))
-                        }
-                        context.startActivity(intent)
-                    }
-                )
+                // If deviceId is temporarily null, just fallback to a generic placeholder.
+                OperatorOfflineCard(deviceId = deviceId ?: "your-device-id")
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -436,10 +431,9 @@ fun MainScreen(
                         if (cameraEnabled) {
                             runtime.setCameraEnabled(false)
                         } else {
-                            onRequestPermissions(listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
-                            // Assuming onRequestPermissions allows us to check later or triggers launcher
-                            // If granted, runtime.setCameraEnabled will be set (often done in permission callback)
-                            // We can optimistically set it or let the observer handle it
+                            if (onRequestPermissions(listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))) {
+                                runtime.setCameraEnabled(true)
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f)
@@ -454,7 +448,9 @@ fun MainScreen(
                         if (talkEnabled) {
                             runtime.setTalkEnabled(false)
                         } else {
-                            onRequestPermissions(listOf(Manifest.permission.RECORD_AUDIO))
+                            if (onRequestPermissions(listOf(Manifest.permission.RECORD_AUDIO))) {
+                                runtime.setTalkEnabled(true)
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f)
@@ -472,7 +468,10 @@ fun MainScreen(
                     isActive = locationMode != LocationMode.Off,
                     onClick = {
                         if (locationMode == LocationMode.Off) {
-                            onRequestPermissions(listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                            if (onRequestPermissions(listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))) {
+                                runtime.setLocationMode(LocationMode.WhileUsing)
+                                runtime.setLocationPreciseEnabled(false) // Start with coarse, let them cycle
+                            }
                         } else if (!locationPrecise) {
                             runtime.setLocationPreciseEnabled(true)
                         } else {
@@ -699,8 +698,9 @@ fun SystemStatusCard(
 
 @Composable
 fun OperatorOfflineCard(
-    onAskAIToFix: () -> Unit
+    deviceId: String
 ) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -738,17 +738,38 @@ fun OperatorOfflineCard(
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
             Spacer(modifier = Modifier.height(12.dp))
+            
+            val command = stringResource(R.string.operator_offline_command, deviceId)
+            SelectionContainer {
+                Text(
+                    text = command,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
-                onClick = onAskAIToFix,
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("Command", command)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, context.getString(R.string.operator_offline_copied), Toast.LENGTH_SHORT).show()
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.onErrorContainer,
                     contentColor = MaterialTheme.colorScheme.errorContainer
                 )
             ) {
-                Text(
-                    text = stringResource(R.string.operator_offline_action),
-                    fontWeight = FontWeight.Bold
-                )
+                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.operator_offline_copy), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1027,7 +1048,7 @@ fun MissingScopeCard(error: String, onClick: () -> Unit) {
 @Composable
 fun PermissionStatusCard(
     missingPermissions: List<PermissionInfo>,
-    onRequestPermissions: (List<String>) -> Unit,
+    onRequestPermissions: (List<String>) -> Boolean,
     onOpenAppSettings: () -> Unit
 ) {
     Card(

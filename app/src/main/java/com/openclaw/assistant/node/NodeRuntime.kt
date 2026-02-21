@@ -190,6 +190,12 @@ class NodeRuntime(context: Context) {
   private val _mainSessionKey = MutableStateFlow("main")
   val mainSessionKey: StateFlow<String> = _mainSessionKey.asStateFlow()
 
+  private val _isPairingRequired = MutableStateFlow(false)
+  val isPairingRequired: StateFlow<Boolean> = _isPairingRequired.asStateFlow()
+
+  val deviceId: String?
+    get() = identityStore.loadOrCreate().deviceId
+
   private val cameraHudSeq = AtomicLong(0)
   private val _cameraHud = MutableStateFlow<CameraHudState?>(null)
   val cameraHud: StateFlow<CameraHudState?> = _cameraHud.asStateFlow()
@@ -226,6 +232,7 @@ class NodeRuntime(context: Context) {
       onConnected = { name, remote, mainSessionKey ->
         operatorConnected = true
         operatorStatusText = "Connected"
+        _isPairingRequired.value = false
         _serverName.value = name
         _remoteAddress.value = remote
         _seamColorArgb.value = DEFAULT_SEAM_COLOR_ARGB
@@ -237,6 +244,9 @@ class NodeRuntime(context: Context) {
       onDisconnected = { message ->
         operatorConnected = false
         operatorStatusText = message
+        if (message.contains("NOT_PAIRED") || message.contains("pairing required", ignoreCase = true)) {
+          _isPairingRequired.value = true
+        }
         _serverName.value = null
         _remoteAddress.value = null
         _seamColorArgb.value = DEFAULT_SEAM_COLOR_ARGB
@@ -254,7 +264,7 @@ class NodeRuntime(context: Context) {
       },
     )
 
-  private val nodeSession =
+    val nodeSession =
     GatewaySession(
       scope = scope,
       identityStore = identityStore,
@@ -262,6 +272,7 @@ class NodeRuntime(context: Context) {
       onConnected = { _, _, _ ->
         nodeConnected = true
         nodeStatusText = "Connected"
+        _isPairingRequired.value = false
         updateStatus()
         maybeNavigateToA2uiOnConnect()
       },
@@ -418,6 +429,16 @@ class NodeRuntime(context: Context) {
     }
 
     scope.launch(Dispatchers.Default) {
+      // Auto-connect for Manual Mode on startup
+      if (manualEnabled.value) {
+        delay(500) // Brief delay to allow system to settle
+        if (!_isConnected.value) {
+           connectManual()
+        }
+      }
+    }
+
+    scope.launch(Dispatchers.Default) {
       gateways.collect { list ->
         if (list.isNotEmpty()) {
           // Security: don't let an unauthenticated discovery feed continuously steer autoconnect.
@@ -430,19 +451,9 @@ class NodeRuntime(context: Context) {
         if (didAutoConnect) return@collect
         if (_isConnected.value) return@collect
 
+        // In manual mode, we don't let discovery drive the connection.
+        // Connection is handled by startup check or user action.
         if (manualEnabled.value) {
-          val host = manualHost.value.trim()
-          val port = manualPort.value
-          if (host.isNotEmpty() && port in 1..65535) {
-            // Security: autoconnect only to previously trusted gateways (stored TLS pin).
-            if (!manualTls.value) return@collect
-            val stableId = GatewayEndpoint.manual(host = host, port = port).stableId
-            val storedFingerprint = prefs.loadGatewayTlsFingerprint(stableId)?.trim().orEmpty()
-            if (storedFingerprint.isEmpty()) return@collect
-
-            didAutoConnect = true
-            connect(GatewayEndpoint.manual(host = host, port = port))
-          }
           return@collect
         }
 
@@ -594,6 +605,10 @@ class NodeRuntime(context: Context) {
 
   fun connectManual() {
     val host = manualHost.value.trim()
+      .removePrefix("http://")
+      .removePrefix("https://")
+      .removeSuffix("/")
+
     val port = manualPort.value
     if (host.isEmpty() || port <= 0 || port > 65535) {
       _statusText.value = "Failed: invalid manual host/port"
