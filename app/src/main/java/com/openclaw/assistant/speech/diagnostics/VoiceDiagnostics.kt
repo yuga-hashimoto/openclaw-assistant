@@ -12,8 +12,10 @@ import java.util.Locale
 data class VoiceDiagnostic(
     val sttStatus: DiagnosticStatus,
     val ttsStatus: DiagnosticStatus,
+    val hotwordStatus: DiagnosticStatus,
     val sttEngine: String? = null,
     val ttsEngine: String? = null,
+    val hotwordEngine: String? = null,
     val missingLanguages: List<String> = emptyList(),
     val suggestions: List<DiagnosticSuggestion> = emptyList()
 )
@@ -39,16 +41,20 @@ class VoiceDiagnostics(private val context: Context) {
     fun performFullCheck(tts: TextToSpeech?): VoiceDiagnostic {
         val sttResult = checkSTT()
         val ttsResult = checkTTS(tts)
+        val hotwordResult = checkHotword()
         
         val suggestions = mutableListOf<DiagnosticSuggestion>()
         suggestions.addAll(sttResult.suggestions)
         suggestions.addAll(ttsResult.suggestions)
+        suggestions.addAll(hotwordResult.suggestions)
 
         return VoiceDiagnostic(
             sttStatus = sttResult.status,
             ttsStatus = ttsResult.status,
+            hotwordStatus = hotwordResult.status,
             sttEngine = sttResult.engine,
             ttsEngine = ttsResult.engine,
+            hotwordEngine = hotwordResult.engine,
             missingLanguages = ttsResult.missingLangs,
             suggestions = suggestions
         )
@@ -60,6 +66,55 @@ class VoiceDiagnostics(private val context: Context) {
         val suggestions: List<DiagnosticSuggestion> = emptyList(),
         val missingLangs: List<String> = emptyList()
     )
+
+    private fun checkHotword(): ComponentCheckResult {
+        val prefs = context.getSharedPreferences("hotword_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("vosk_unsupported", false)) {
+            return ComponentCheckResult(
+                status = DiagnosticStatus.ERROR,
+                engine = "Vosk (Unsupported)",
+                suggestions = listOf(
+                    DiagnosticSuggestion(
+                        "Vosk native library is not supported on this device architecture.",
+                        null,
+                        null
+                    )
+                )
+            )
+        }
+
+        val modelDir = java.io.File(context.filesDir, "model")
+        if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
+            return ComponentCheckResult(
+                status = DiagnosticStatus.WARNING,
+                engine = "Vosk (Model Missing)",
+                suggestions = listOf(
+                    DiagnosticSuggestion(
+                        "Hotword model is missing or not yet loaded.",
+                        null,
+                        null
+                    )
+                )
+            )
+        }
+
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return ComponentCheckResult(
+                status = DiagnosticStatus.ERROR,
+                engine = "Vosk (No Mic Permission)",
+                suggestions = listOf(
+                    DiagnosticSuggestion(
+                        "Microphone permission is required for Wake Word.",
+                        "Grant Permission",
+                        null
+                    )
+                )
+            )
+        }
+
+        return ComponentCheckResult(status = DiagnosticStatus.READY, engine = "Vosk")
+    }
 
     private fun checkSTT(): ComponentCheckResult {
         val isAvailable = SpeechRecognizer.isRecognitionAvailable(context)

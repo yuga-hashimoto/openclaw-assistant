@@ -26,8 +26,6 @@ import kotlinx.coroutines.*
 import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.RecognitionListener as VoskRecognitionListener
-import org.vosk.android.SpeechService
-import org.vosk.android.StorageService
 import java.io.IOException
 import org.json.JSONObject
 
@@ -65,7 +63,7 @@ class HotwordService : Service(), VoskRecognitionListener {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     private var model: Model? = null
-    private var speechService: SpeechService? = null
+    private var audioProcessor: VoskAudioProcessor? = null
     
     private lateinit var settings: SettingsRepository
 
@@ -84,9 +82,8 @@ class HotwordService : Service(), VoskRecognitionListener {
                 ACTION_PAUSE_HOTWORD -> {
                     Log.d(TAG, "Pause signal received")
                     isSessionActive = true
-                    speechService?.stop()
-                    speechService?.shutdown()
-                    speechService = null
+                    audioProcessor?.stop()
+                    audioProcessor = null
                     isListeningForCommand = false
                     startWatchdog()
                 }
@@ -97,14 +94,9 @@ class HotwordService : Service(), VoskRecognitionListener {
                     isSessionActive = false
                     isListeningForCommand = false
 
-                    // Ensure speechService is cleaned up
-                    speechService?.let {
-                        try {
-                            it.stop()
-                            it.shutdown()
-                        } catch (e: Exception) { /* ignore */ }
-                    }
-                    speechService = null
+                    // Ensure audioProcessor is cleaned up
+                    audioProcessor?.stop()
+                    audioProcessor = null
 
                     resumeHotwordDetection()
                 }
@@ -130,7 +122,7 @@ class HotwordService : Service(), VoskRecognitionListener {
                     // Don't resume - device doesn't support Vosk
                 } else {
                     FirebaseCrashlytics.getInstance().recordException(throwable)
-                    speechService = null
+                    audioProcessor = null
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                         if (!isSessionActive) {
                             resumeHotwordDetection()
@@ -211,7 +203,10 @@ class HotwordService : Service(), VoskRecognitionListener {
             unregisterReceiver(controlReceiver)
         } catch (e: Exception) {}
         scope.cancel()
-        speechService?.shutdown()
+        audioProcessor?.stop()
+        try {
+            model?.close()
+        } catch (e: Exception) {}
     }
 
     private fun showPermissionNotification() {
@@ -415,16 +410,9 @@ class HotwordService : Service(), VoskRecognitionListener {
     private fun startHotwordListening() {
         if (model == null || isSessionActive) return
 
-        // Clean up any existing speechService to prevent resource leak
-        speechService?.let {
-            try {
-                it.stop()
-                it.shutdown()
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to clean up existing speechService", e)
-            }
-            speechService = null
-        }
+        // Clean up any existing processor to prevent resource leak
+        audioProcessor?.stop()
+        audioProcessor = null
 
         // Verify RECORD_AUDIO permission before touching AudioRecord
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
@@ -434,35 +422,55 @@ class HotwordService : Service(), VoskRecognitionListener {
         }
 
         // Pre-validate that AudioRecord can actually be created
-        val bufferSize = AudioRecord.getMinBufferSize(
+        val bufferSize = (AudioRecord.getMinBufferSize(
             16000,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
-        )
-        if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
+        ) * 2).coerceAtLeast(3200)
+
+        if (bufferSize < 0) {
             Log.e(TAG, "AudioRecord.getMinBufferSize failed: $bufferSize")
             scheduleAudioRetry()
             return
         }
-        val testRecord = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                16000,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "AudioRecord creation failed", e)
-            null
+
+        // Try multiple audio sources: VOICE_RECOGNITION is preferred, MIC is fallback
+        val sources = listOf(
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC,
+            MediaRecorder.AudioSource.DEFAULT
+        )
+
+        var selectedRecord: AudioRecord? = null
+        var usedSource = -1
+
+        for (source in sources) {
+            try {
+                val record = AudioRecord(
+                    source,
+                    16000,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    bufferSize
+                )
+                if (record.state == AudioRecord.STATE_INITIALIZED) {
+                    selectedRecord = record
+                    usedSource = source
+                    Log.d(TAG, "AudioRecord initialized with source: $source")
+                    break
+                }
+                record.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to initialize AudioRecord with source $source: ${e.message}")
+            }
         }
-        if (testRecord == null || testRecord.state != AudioRecord.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioRecord failed to initialize. Mic may be in use or unavailable.")
-            testRecord?.release()
+
+        if (selectedRecord == null) {
+            Log.e(TAG, "AudioRecord failed to initialize with all sources. Mic may be in use.")
             scheduleAudioRetry()
             return
         }
-        testRecord.release()
+
         audioRetryCount = 0
 
         try {
@@ -472,12 +480,13 @@ class HotwordService : Service(), VoskRecognitionListener {
             Log.d(TAG, "Starting hotword detection with words: $wakeWordsJson")
 
             val rec = Recognizer(model, SAMPLE_RATE, wakeWordsJson)
-            speechService = SpeechService(rec, SAMPLE_RATE)
-            speechService?.startListening(this)
-            Log.d(TAG, "Hotword listening started")
+            audioProcessor = VoskAudioProcessor(rec, selectedRecord, this)
+            audioProcessor?.start()
+            Log.d(TAG, "Hotword listening started with source $usedSource")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start hotword listening", e)
-            speechService = null
+            selectedRecord.release()
+            audioProcessor = null
             scheduleAudioRetry()
         }
     }
@@ -539,11 +548,7 @@ class HotwordService : Service(), VoskRecognitionListener {
         }
     }
 
-    override fun onTimeout() {
-        if (!isListeningForCommand && !isSessionActive) {
-            speechService?.startListening(this)
-        }
-    }
+    override fun onTimeout() {}
 
     private fun onHotwordDetected() {
         if (isListeningForCommand || isSessionActive) return
@@ -555,16 +560,9 @@ class HotwordService : Service(), VoskRecognitionListener {
 
         // Stop service on Main thread to avoid race conditions
         scope.launch {
-            // Ensure speechService is safely stopped
-            speechService?.let {
-                try {
-                    it.stop()
-                    it.shutdown()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to stop speech service", e)
-                }
-            }
-            speechService = null
+            // Ensure audioProcessor is safely stopped
+            audioProcessor?.stop()
+            audioProcessor = null
 
             delay(300) // Wait for resource release
 
@@ -583,9 +581,68 @@ class HotwordService : Service(), VoskRecognitionListener {
         updateNotification()
         scope.launch {
             delay(500)
-            if (!isSessionActive && speechService == null) {
+            if (!isSessionActive && audioProcessor == null) {
                 startHotwordListening()
             }
+        }
+    }
+
+    /**
+     * Custom Audio Loop for Vosk (Replacement for SpeechService)
+     */
+    private inner class VoskAudioProcessor(
+        private val recognizer: Recognizer,
+        private val audioRecord: AudioRecord,
+        private val listener: VoskRecognitionListener
+    ) {
+        @Volatile private var isProcessing = false
+        private var processingJob: Job? = null
+
+        fun start() {
+            if (isProcessing) return
+            isProcessing = true
+            processingJob = scope.launch(Dispatchers.IO) {
+                try {
+                    audioRecord.startRecording()
+                    val buffer = ByteArray(3200) // ~100ms at 16k
+                    while (isProcessing && isActive) {
+                        val read = audioRecord.read(buffer, 0, buffer.size)
+                        if (read > 0) {
+                            if (recognizer.acceptWaveForm(buffer, read)) {
+                                val result = recognizer.result
+                                withContext(Dispatchers.Main) {
+                                    listener.onResult(result)
+                                }
+                            } else {
+                                val partial = recognizer.partialResult
+                                withContext(Dispatchers.Main) {
+                                    listener.onPartialResult(partial)
+                                }
+                            }
+                        } else if (read < 0) {
+                            Log.e(TAG, "AudioRecord read error: $read")
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "VoskAudioProcessor error", e)
+                } finally {
+                    try {
+                        if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                            audioRecord.stop()
+                        }
+                    } catch (e: Exception) {}
+                    audioRecord.release()
+                    try {
+                        recognizer.close()
+                    } catch (e: Exception) {}
+                }
+            }
+        }
+
+        fun stop() {
+            isProcessing = false
+            processingJob?.cancel()
         }
     }
 

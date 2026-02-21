@@ -209,6 +209,21 @@
 
     <!-- Support Section -->
     <string name="support_section">Support</string>
+    <string name="run_reliability_check">Voice Reliability Check</string>
+    <string name="reliability_check_desc">Verify if your device can hear and speak correctly.</string>
+    <string name="reliability_report_title">Voice Diagnostic Report</string>
+    <string name="reliability_testing_tts">Testing TTS Output...</string>
+    <string name="reliability_testing_mic">Testing Microphone Input...</string>
+    <string name="reliability_testing_vosk">Testing Wake Word Engine...</string>
+    <string name="reliability_test_passed">Passed</string>
+    <string name="reliability_test_failed">Failed</string>
+    <string name="reliability_copy_report">Copy Report</string>
     <string name="report_issue">Report Issue</string>
     <string name="report_issue_desc">Found a bug or have a feature request? Let us know on GitHub.</string>
+
+    <!-- Wake Word Troubleshooting -->
+    <string name="wake_word_mic_title">Microphone Quality &amp; Placement</string>
+    <string name="wake_word_mic_desc">Cheap tablets often have poor microphones. Try speaking closer to the device or using an external microphone if possible.</string>
+    <string name="wake_word_interference_title">\"Hey Google\" Interference</string>
+    <string name="wake_word_interference_desc">If Google Assistant is enabled, it may take exclusive control of the microphone. Try disabling \"Hey Google\" in Google app settings.</string>
 </resources>

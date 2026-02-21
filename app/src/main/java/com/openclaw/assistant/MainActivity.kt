@@ -442,9 +442,10 @@ fun DiagnosticPanel(diagnostic: VoiceDiagnostic, onRefresh: () -> Unit) {
                 IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp)) }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                DiagnosticItem(label = "In: ${diagnostic.sttEngine?.take(10) ?: "Def"}", status = diagnostic.sttStatus, modifier = Modifier.weight(1f))
-                DiagnosticItem(label = "Out: ${diagnostic.ttsEngine?.split('.')?.lastOrNull() ?: "null"}", status = diagnostic.ttsStatus, modifier = Modifier.weight(1f))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DiagnosticItem(label = "STT: ${diagnostic.sttEngine?.take(10) ?: "Def"}", status = diagnostic.sttStatus, modifier = Modifier.weight(1f))
+                DiagnosticItem(label = "TTS: ${diagnostic.ttsEngine?.split('.')?.lastOrNull() ?: "null"}", status = diagnostic.ttsStatus, modifier = Modifier.weight(1f))
+                DiagnosticItem(label = "Wake: ${diagnostic.hotwordEngine?.take(10) ?: "null"}", status = diagnostic.hotwordStatus, modifier = Modifier.weight(1f))
             }
             if (diagnostic.suggestions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -740,10 +741,19 @@ fun TroubleshootingDialog(onDismiss: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.assist_gesture_not_working)) }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(stringResource(R.string.troubleshooting_intro), fontSize = 14.sp)
-            listOf("circle_to_search", "gesture_navigation", "google_app_setting", "refresh_binding").forEach { key -> 
+            listOf(
+                "circle_to_search",
+                "gesture_navigation",
+                "google_app_setting",
+                "refresh_binding",
+                "wake_word_mic",
+                "wake_word_interference"
+            ).forEach { key ->
                 val titleId = context.resources.getIdentifier("${key}_title", "string", context.packageName)
                 val descId = context.resources.getIdentifier("${key}_desc", "string", context.packageName)
-                BulletPoint(stringResource(titleId), stringResource(descId)) 
+                if (titleId != 0 && descId != 0) {
+                    BulletPoint(stringResource(titleId), stringResource(descId))
+                }
             }
             Spacer(modifier = Modifier.height(8.dp)); HorizontalDivider(); Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = { context.startService(Intent(context, OpenClawAssistantService::class.java).apply { action = OpenClawAssistantService.ACTION_SHOW_ASSISTANT }) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text(stringResource(R.string.debug_force_start)) }

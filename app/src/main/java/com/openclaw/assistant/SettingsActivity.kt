@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,12 @@ import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import com.openclaw.assistant.utils.SystemInfoProvider
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.speech.tts.TextToSpeech
+import org.vosk.Model
+import org.vosk.Recognizer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -91,6 +98,9 @@ fun SettingsScreen(
     
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<TestResult?>(null) }
+
+    var isRunningReliabilityCheck by remember { mutableStateOf(false) }
+    var reliabilityReport by remember { mutableStateOf<String?>(null) }
 
     // Agent list from gateway
     val gatewayClient = remember { GatewayClient.getInstance() }
@@ -861,6 +871,75 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = stringResource(R.string.run_reliability_check),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.reliability_check_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+
+                    if (reliabilityReport != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = reliabilityReport!!,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TextButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clip = android.content.ClipData.newPlainText("Reliability Report", reliabilityReport)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, R.string.pairing_command_copied, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(R.string.reliability_copy_report))
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isRunningReliabilityCheck = true
+                                reliabilityReport = "Running diagnostic tests...\n"
+
+                                val report = runReliabilityCheck(context)
+                                reliabilityReport = report
+                                isRunningReliabilityCheck = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isRunningReliabilityCheck
+                    ) {
+                        if (isRunningReliabilityCheck) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Icon(Icons.Default.VerifiedUser, contentDescription = null)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.run_reliability_check))
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+
+                    Text(
                         text = stringResource(R.string.report_issue),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -873,7 +952,7 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             val systemInfo = SystemInfoProvider.getSystemInfoReport(context, settings)
-                            val body = "\n\n$systemInfo"
+                            val body = "\n\n$systemInfo\n\n${reliabilityReport ?: ""}"
                             val uri = Uri.parse("https://github.com/yuga-hashimoto/openclaw-assistant/issues/new")
                                 .buildUpon()
                                 .appendQueryParameter("body", body)
@@ -899,6 +978,84 @@ data class TestResult(
     val success: Boolean,
     val message: String
 )
+
+private suspend fun runReliabilityCheck(context: android.content.Context): String {
+    val details = StringBuilder()
+    details.append("--- Voice Reliability Report ---\n")
+    details.append("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+    details.append("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n\n")
+
+    // 1. TTS Test
+    details.append("[1/3] TTS Engine: ")
+    val ttsResult = kotlinx.coroutines.CompletableDeferred<Int>()
+    val testTts = TextToSpeech(context) { status ->
+        ttsResult.complete(status)
+    }
+    val status = ttsResult.await()
+    if (status == TextToSpeech.SUCCESS) {
+        val engine = testTts.defaultEngine ?: "unknown"
+        details.append("OK ($engine)\n")
+        testTts.speak("Diagnostic check", TextToSpeech.QUEUE_FLUSH, null, null)
+        delay(1000)
+    } else {
+        details.append("FAILED (status $status)\n")
+    }
+    testTts.shutdown()
+
+    // 2. Mic Test
+    details.append("[2/3] Microphone: ")
+    if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO)
+        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        details.append("FAILED (Permission denied)\n")
+    } else {
+        val bufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        if (bufferSize > 0) {
+            try {
+                val record = AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize.coerceAtLeast(3200))
+                if (record.state == AudioRecord.STATE_INITIALIZED) {
+                record.startRecording()
+                val buf = ShortArray(1600)
+                val read = record.read(buf, 0, buf.size)
+                if (read > 0) {
+                    details.append("OK (read $read samples)\n")
+                } else {
+                    details.append("FAILED (read code $read)\n")
+                }
+                record.stop()
+            } else {
+                details.append("FAILED (state ${record.state})\n")
+            }
+            record.release()
+            } catch (e: Exception) {
+                details.append("ERROR: ${e.message}\n")
+            }
+        } else {
+            details.append("FAILED (bad buffer size $bufferSize)\n")
+        }
+    }
+
+    // 3. Vosk Test
+    details.append("[3/3] Wake Word Engine: ")
+    val modelDir = java.io.File(context.filesDir, "model")
+    if (modelDir.exists() && modelDir.list()?.isNotEmpty() == true) {
+        var model: Model? = null
+        var rec: Recognizer? = null
+        try {
+            model = Model(modelDir.absolutePath)
+            rec = Recognizer(model, 16000.0f)
+            details.append("OK (Vosk ready)\n")
+        } catch (e: Exception) {
+            details.append("ERROR: ${e.message}\n")
+        } finally {
+            try { rec?.close() } catch (e: Exception) {}
+            try { model?.close() } catch (e: Exception) {}
+        }
+    } else {
+        details.append("FAILED (model missing)\n")
+    }
+
+    return details.toString()
+}
 
 // Fallback language list used when device query fails
 private val FALLBACK_SPEECH_LANGUAGES = listOf(
