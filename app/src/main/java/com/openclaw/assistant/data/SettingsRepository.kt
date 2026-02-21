@@ -126,6 +126,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getLong(KEY_SPEECH_SILENCE_TIMEOUT, 5000L)
         set(value) = prefs.edit().putLong(KEY_SPEECH_SILENCE_TIMEOUT, value).apply()
 
+    // Speech recognition completion timeout in ms (default 2000ms)
+    var speechRecognitionCompleteTimeout: Long
+        get() = prefs.getLong(KEY_SPEECH_RECOGNITION_COMPLETE_TIMEOUT, 2000L)
+        set(value) = prefs.edit().putLong(KEY_SPEECH_RECOGNITION_COMPLETE_TIMEOUT, value).apply()
+
     // Speech recognition language (BCP-47 tag, empty = system default)
     var speechLanguage: String
         get() = prefs.getString(KEY_SPEECH_LANGUAGE, "") ?: ""
@@ -199,6 +204,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_DEFAULT_AGENT_ID = "default_agent_id"
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
+        private const val KEY_SPEECH_RECOGNITION_COMPLETE_TIMEOUT = "speech_recognition_complete_timeout"
         private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
         private const val KEY_SPEECH_LANGUAGE = "speech_language"
 

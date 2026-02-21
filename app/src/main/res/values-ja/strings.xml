@@ -84,8 +84,10 @@
     <string name="auto_start_mic">AI発話後に自動でマイクを起動</string>
     <string name="resume_latest_session">最新のセッションを再開</string>
     <string name="resume_latest_session_desc">起動時に前回の会話を継続する</string>
-    <string name="speech_silence_timeout">無音タイムアウト</string>
-    <string name="speech_silence_timeout_desc">発話後の待機時間</string>
+    <string name="speech_silence_timeout">開始無音タイムアウト</string>
+    <string name="speech_silence_timeout_desc">発話開始までの待機時間</string>
+    <string name="speech_recognition_complete_timeout">終了無音タイムアウト</string>
+    <string name="speech_recognition_complete_timeout_desc">発話終了後の待機時間</string>
     <string name="speech_language_label">音声言語</string>
     <string name="speech_language_desc">音声認識と応答の言語</string>
     <string name="conversation_section">会話</string>
