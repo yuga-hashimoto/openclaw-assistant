@@ -6,14 +6,14 @@ import android.util.Log
 import java.util.Locale
 
 /**
- * TTSの共通ユーティリティ
+ * Common utilities for TTS
  */
 object TTSUtils {
     private const val TAG = "TTSUtils"
     const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
 
     /**
-     * ロケールと高品質な音声のセットアップ
+     * Setup locale and high-quality voice
      */
     fun setupVoice(tts: TextToSpeech?, speed: Float, languageTag: String? = null) {
         val currentLocale = if (!languageTag.isNullOrEmpty()) {
@@ -23,7 +23,7 @@ object TTSUtils {
         }
         Log.e(TAG, "Current system locale: $currentLocale")
 
-        // エンジン情報をログ出力
+        // Log engine information
         try {
             val engine = tts?.defaultEngine
             Log.e(TAG, "Using TTS Engine: $engine")
@@ -31,17 +31,17 @@ object TTSUtils {
             Log.e(TAG, "Could not get default engine: ${e.message}")
         }
 
-        // システムロケールの設定を試みる
+        // Try to set system locale
         val result = tts?.setLanguage(currentLocale)
         Log.e(TAG, "setLanguage($currentLocale) result=$result")
 
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            // デフォルトが失敗した場合は英語(US)にフォールバック
+            // Fallback to English (US) if default fails
             val fallbackResult = tts?.setLanguage(Locale.US)
             Log.e(TAG, "Fallback setLanguage(Locale.US) result=$fallbackResult")
         }
 
-        // 高品質な音声（ネットワーク不要のもの優先）を選択
+        // Select high-quality voice (prioritizing non-network ones)
         try {
             val targetLang = tts?.language?.language
             val voices = tts?.voices
@@ -63,7 +63,7 @@ object TTSUtils {
     }
 
     /**
-     * ユーザー設定の速度を適用する
+     * Apply user-configured speed
      */
     fun applyUserConfig(tts: TextToSpeech?, speed: Float) {
         if (tts == null) return
@@ -72,48 +72,48 @@ object TTSUtils {
     }
 
     /**
-     * Markdownフォーマットを除去してTTS向けのプレーンテキストに変換する
+     * Strip Markdown formatting and convert to plain text for TTS
      */
     fun stripMarkdownForSpeech(text: String): String {
         var result = text
-        // コードブロック (```...```) -> 中身だけ残す
-        // 言語指定がある場合 (```kotlin ...) も考慮して、バッククォートと最初の行(言語名)を削除などの調整が必要だが、
-        // 単純化してバッククォートだけ削除し、中身は読むようにする。または「コードブロック」と読み上げさせるか？
-        // ユーザー要望「記号以外は読み上げる」に従い、中身は残す。
-        result = result.replace(Regex("```.*\\n?"), "") // 開始の ```language を削除
-        result = result.replace(Regex("```"), "")       // 終了の ``` を削除
+        // Code block (```...```) -> keep only the content
+        // Adjustments like removing backticks and the first line (language name) for cases with language specification (```kotlin ...) are needed, but
+        // simplify by just removing backticks and reading the content. Or should it say "code block"?
+        // According to user request "read everything except symbols", keep the content.
+        result = result.replace(Regex("```.*\\n?"), "") // Remove starting ```language
+        result = result.replace(Regex("```"), "")       // Remove ending ```
 
-        // ヘッダー (# ## ### 等) を除去
+        // Remove headers (# ## ### etc.)
         result = result.replace(Regex("^#{1,6}\\s+", RegexOption.MULTILINE), "")
         
-        // ボールド/イタリック (**text**, *text*, __text__, _text_)
+        // Bold/Italic (**text**, *text*, __text__, _text_)
         result = result.replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1")
         result = result.replace(Regex("\\*([^*]+)\\*"), "$1")
         result = result.replace(Regex("__([^_]+)__"), "$1")
         result = result.replace(Regex("_([^_]+)_"), "$1")
         
-        // インラインコード (`code`)
+        // Inline code (code)
         result = result.replace(Regex("`([^`]+)`"), "$1")
         
-        // リンク [text](url) → text
+        // Link [text](url) → text
         result = result.replace(Regex("\\[([^\\]]+)]\\([^)]+\\)"), "$1")
         
-        // 画像 ![alt](url) → alt
+        // Image ![alt](url) → alt
         result = result.replace(Regex("!\\[([^\\]]*)]\\([^)]+\\)"), "$1")
         
-        // 水平線 (---, ***) -> 削除
+        // Horizontal rule (---, ***) -> Remove
         result = result.replace(Regex("^[-*_]{3,}$", RegexOption.MULTILINE), "")
         
-        // ブロッククオート (>)
+        // Blockquote (>)
         result = result.replace(Regex("^>\\s?", RegexOption.MULTILINE), "")
         
-        // 箇条書きマーカー (-, *, +)
+        // Bullet point markers (-, *, +)
         result = result.replace(Regex("^\\s*[-*+]\\s+", RegexOption.MULTILINE), "")
         
-        // 番号付きリストマーカー (1., 2., 等) - これは読んでもいいかもしれないが、数字だけ残す
+        // Numbered list markers (1., 2., etc.) - these might be okay to read, but keep only the numbers
         // result = result.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
         
-        // 連続改行を整理
+        // Organize consecutive newlines
         result = result.replace(Regex("\n{3,}"), "\n\n")
         
         return result.trim()

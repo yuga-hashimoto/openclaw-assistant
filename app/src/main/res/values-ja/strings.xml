@@ -82,6 +82,8 @@
     <string name="read_ai_responses">AIの応答を読み上げる</string>
     <string name="continuous_conversation">連続会話</string>
     <string name="auto_start_mic">AI発話後に自動でマイクを起動</string>
+    <string name="resume_latest_session">最新のセッションを再開</string>
+    <string name="resume_latest_session_desc">起動時に前回の会話を継続する</string>
     <string name="speech_silence_timeout">無音タイムアウト</string>
     <string name="speech_silence_timeout_desc">発話後の待機時間</string>
     <string name="speech_language_label">音声言語</string>

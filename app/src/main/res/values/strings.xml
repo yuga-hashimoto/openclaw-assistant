@@ -106,6 +106,8 @@
     <string name="read_ai_responses">Read AI responses aloud</string>
     <string name="continuous_conversation">Continuous Conversation</string>
     <string name="auto_start_mic">Auto-start mic after AI speaks</string>
+    <string name="resume_latest_session">Resume Latest Session</string>
+    <string name="resume_latest_session_desc">Continue previous conversation on activation</string>
     <string name="speech_silence_timeout">Silence Timeout</string>
     <string name="speech_silence_timeout_desc">Wait time after speech pause</string>
     <string name="speech_language_label">Speech Language</string>

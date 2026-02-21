@@ -19,25 +19,25 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
- * 音声認識マネージャー
+ * Speech Recognition Manager
  */
 class SpeechRecognizerManager(private val context: Context) {
 
     private var recognizer: SpeechRecognizer? = null
 
     /**
-     * 音声認識を利用可能かチェック
+     * Check if speech recognition is available
      */
     fun isAvailable(): Boolean {
         return SpeechRecognizer.isRecognitionAvailable(context)
     }
 
     /**
-     * 音声認識を開始し、結果をFlowで返す
-     * language が null の場合はシステムデフォルトを使用する
+     * Start speech recognition and return results as a Flow
+     * If language is null, use system default
      */
     fun startListening(language: String? = null, silenceTimeoutMs: Long = 2500L): Flow<SpeechResult> = callbackFlow {
-        // デフォルト言語の決定
+        // Determine default language
         val targetLanguage = language ?: Locale.getDefault().toLanguageTag()
         
         android.util.Log.e("SpeechRecognizerManager", "startListening called, language=$targetLanguage, isAvailable=${isAvailable()}")
@@ -230,7 +230,7 @@ class SpeechRecognizerManager(private val context: Context) {
 }
 
 /**
- * 音声認識の結果
+ * Speech recognition results
  */
 sealed class SpeechResult {
     object Ready : SpeechResult()

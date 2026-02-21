@@ -54,7 +54,7 @@ import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 
 /**
  * Voice Interaction Session
- * 実際の音声対話を処理
+ * Handles actual voice interaction
  */
 class OpenClawSession(context: Context) : VoiceInteractionSession(context), 
     androidx.lifecycle.LifecycleOwner,
@@ -188,19 +188,26 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
         // PAUSE Hotword Service to prevent microphone conflict
         sendPauseBroadcast()
         
-        // CREATE NEW SESSION
+        // SESSION MANAGEMENT
         scope.launch {
             try {
-                currentSessionId = chatRepository.createSession(title = String.format(context.getString(R.string.default_session_title_format), java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())))
-                // Store this ID in settings if we want the ChatActivity to resume it?
-                // For now, standalone usage.
-                settings.sessionId = currentSessionId!! 
+                val latestSession = if (settings.resumeLatestSession) chatRepository.getLatestSession() else null
+                if (latestSession != null) {
+                    currentSessionId = latestSession.id
+                    Log.d(TAG, "Resuming latest session: $currentSessionId")
+                } else {
+                    currentSessionId = chatRepository.createSession(title = String.format(context.getString(R.string.default_session_title_format), java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())))
+                    Log.d(TAG, "Created new session: $currentSessionId")
+                }
+
+                // Store this ID in settings so ChatActivity and API calls use it
+                currentSessionId?.let { settings.sessionId = it }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to create DB session", e)
+                Log.e(TAG, "Failed to handle session", e)
             }
         }
         
-        // 設定チェック
+        // Check settings
         if (!settings.isConfigured()) {
             currentState.value = AssistantState.ERROR
             errorMessage.value = context.getString(R.string.error_config_required)
@@ -208,7 +215,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             return
         }
 
-        // 音声認識開始
+        // Start speech recognition
         startListening()
     }
     
@@ -445,7 +452,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             delay(500)
             startListening()
         } else {
-            // TTS無効 & 連続会話OFF: アイドルに戻す
+            // TTS disabled & continuous conversation OFF: Return to IDLE
             currentState.value = AssistantState.IDLE
             SessionForegroundService.stop(context)
         }
@@ -472,12 +479,12 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                 abandonAudioFocus()
 
                 if (success) {
-                    // 読み上げ完了後、連続会話モードが有効なら再度リスニング開始
+                    // After speech completion, if continuous conversation mode is enabled, start listening again
                     if (settings.continuousMode) {
                         delay(500)
                         startListening()
                     } else {
-                        // 連続会話OFFの場合、セッションを終了
+                        // If continuous conversation is OFF, end the session
                         currentState.value = AssistantState.IDLE
                         SessionForegroundService.stop(context)
                     }
@@ -509,7 +516,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 }
 
 /**
- * アシスタントの状態
+ * Assistant state
  */
 enum class AssistantState {
     IDLE,
@@ -521,7 +528,7 @@ enum class AssistantState {
 }
 
 /**
- * アシスタントUI (Compose)
+ * Assistant UI (Compose)
  */
 @Composable
 fun AssistantUI(
@@ -550,7 +557,7 @@ fun AssistantUI(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Closeボタン
+            // Close button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -566,7 +573,7 @@ fun AssistantUI(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // マイクアイコン
+            // Microphone icon
             val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
             val baseScale by infiniteTransition.animateFloat(
                 initialValue = 1f,
@@ -635,7 +642,7 @@ fun AssistantUI(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 状態テキスト
+            // Status text
             Text(
                 text = when (state) {
                     AssistantState.LISTENING -> stringResource(R.string.state_listening)
@@ -651,7 +658,7 @@ fun AssistantUI(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 認識中のテキスト（部分結果）
+            // Recognized text (partial results)
             if (partialText.isNotBlank() && state == AssistantState.LISTENING) {
                 Text(
                     text = partialText,
@@ -673,7 +680,7 @@ fun AssistantUI(
                 )
             }
 
-            // メインテキスト
+            // Main text
             if (displayText.isNotBlank() && state != AssistantState.LISTENING) {
                 Text(
                     text = displayText,
@@ -684,7 +691,7 @@ fun AssistantUI(
                 )
             }
 
-            // Errorメッセージ
+            // Error message
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(

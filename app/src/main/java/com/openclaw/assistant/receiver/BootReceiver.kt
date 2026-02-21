@@ -11,7 +11,7 @@ import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.service.HotwordService
 
 /**
- * 起動時にホットワードサービスを開始
+ * Start hotword service on boot
  */
 class BootReceiver : BroadcastReceiver() {
 
