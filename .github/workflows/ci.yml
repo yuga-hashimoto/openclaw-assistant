@@ -32,6 +32,7 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
           else
             echo "GOOGLE_SERVICES_JSON secret not found. Generating dummy file..."
+            echo "WARNING: Debug APK will crash at runtime without real Firebase config."
             cat > app/google-services.json << 'EOT'
           {
             "project_info": {
@@ -53,15 +54,26 @@ jobs:
                   }
                 ],
                 "services": {
-                  "analytics_service": {
-                    "status": 1
-                  },
                   "appinvite_service": {
-                    "status": 1,
                     "other_platform_oauth_client": []
-                  },
-                  "ads_service": {
-                    "status": 2
+                  }
+                }
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000001",
+                  "android_client_info": {
+                    "package_name": "com.openclaw.assistant.debug"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "mock-api-key"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
                   }
                 }
               }
@@ -93,8 +105,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Run Lint
         run: ./gradlew lint
@@ -102,5 +114,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
