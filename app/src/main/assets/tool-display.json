@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "fallback": {
+    "emoji": "\uD83E\uDDE9",
+    "label": "tool",
+    "detailKeys": ["path", "url", "query"]
+  },
+  "tools": {
+    "read": {
+      "emoji": "\uD83D\uDCD6",
+      "title": "Read",
+      "label": "read",
+      "detailKeys": ["path"]
+    },
+    "write": {
+      "emoji": "\u270D\uFE0F",
+      "title": "Write",
+      "label": "write",
+      "detailKeys": ["path"]
+    },
+    "edit": {
+      "emoji": "\u2702\uFE0F",
+      "title": "Edit",
+      "label": "edit",
+      "detailKeys": ["path"]
+    },
+    "attach": {
+      "emoji": "\uD83D\uDCCE",
+      "title": "Attach",
+      "label": "attach",
+      "detailKeys": ["path"]
+    }
+  }
+}

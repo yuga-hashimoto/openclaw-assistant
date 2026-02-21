@@ -146,6 +146,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_DEFAULT_AGENT_ID, "main") ?: "main"
         set(value) = prefs.edit().putString(KEY_DEFAULT_AGENT_ID, value).apply()
 
+    // Use NodeRuntime-backed chat pipeline (chat.send / chat history from gateway)
+    var useNodeChat: Boolean
+        get() = prefs.getBoolean(KEY_USE_NODE_CHAT, false)
+        set(value) = prefs.edit().putBoolean(KEY_USE_NODE_CHAT, value).apply()
+
     /**
      * Get the chat completions URL.
      * Supports both base URL (http://server) and full path (http://server/v1/chat/completions).
@@ -198,6 +203,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_TTS_ENGINE = "tts_engine"
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_DEFAULT_AGENT_ID = "default_agent_id"
+        private const val KEY_USE_NODE_CHAT = "use_node_chat"
         private const val KEY_SPEECH_SILENCE_TIMEOUT = "speech_silence_timeout"
         private const val KEY_THINKING_SOUND_ENABLED = "thinking_sound_enabled"
         private const val KEY_SPEECH_LANGUAGE = "speech_language"

@@ -51,6 +51,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.openclaw.assistant.speech.TTSUtils
@@ -274,6 +276,14 @@ fun ChatScreen(
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.titleMedium
                 )
+                if (uiState.isNodeChatMode) {
+                    Text(
+                        text = "Gateway session mode",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 HorizontalDivider()
                 
                 NavigationDrawerItem(
@@ -304,15 +314,17 @@ fun ChatScreen(
                                         maxLines = 1,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    IconButton(
-                                        onClick = { onDeleteSession(session.id) },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = stringResource(R.string.delete),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                    if (!uiState.isNodeChatMode) {
+                                        IconButton(
+                                            onClick = { onDeleteSession(session.id) },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = stringResource(R.string.delete),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             },
@@ -328,7 +340,20 @@ fun ChatScreen(
             }
         }
     ) {
+        val snackbarHostState = remember { SnackbarHostState() }
+
+        // Show error as snackbar that auto-dismisses
+        LaunchedEffect(uiState.error) {
+            uiState.error?.let { error ->
+                snackbarHostState.showSnackbar(
+                    message = error,
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
                     title = {
@@ -350,6 +375,13 @@ fun ChatScreen(
                                 defaultAgentId = uiState.defaultAgentId,
                                 onAgentSelected = onAgentSelected
                             )
+                            if (uiState.isNodeChatMode) {
+                                Text(
+                                    text = "Node backend",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     },
                     navigationIcon = {
@@ -414,6 +446,7 @@ fun ChatScreen(
                         PairingRequiredCard(deviceId = uiState.deviceId)
                     }
                 }
+                // Error now shown as Snackbar via snackbarHostState
 
                 LazyColumn(
                     state = listState,
@@ -442,6 +475,11 @@ fun ChatScreen(
                     if (uiState.isSpeaking) {
                         item {
                             SpeakingIndicator(onStop = onStopSpeaking)
+                        }
+                    }
+                    if (uiState.pendingToolCalls.isNotEmpty()) {
+                        item {
+                            PendingToolsIndicator(uiState.pendingToolCalls)
                         }
                     }
                 }
@@ -478,8 +516,8 @@ fun MessageBubble(message: ChatMessage) {
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val containerColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val contentColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    
-    // Friendly rounded shapes
+
+    // Friendly rounded shapes with tail on sender's side
     val shape = if (isUser) {
         RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
     } else {
@@ -490,40 +528,59 @@ fun MessageBubble(message: ChatMessage) {
         java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(java.util.Date(message.timestamp))
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = alignment
     ) {
-        Column(horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = containerColor),
-                shape = shape,
-                modifier = Modifier.widthIn(max = 300.dp)
-            ) {
-                SelectionContainer {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        if (isUser) {
-                            Text(
-                                text = message.text,
-                                color = contentColor,
-                                fontSize = 16.sp,
-                                lineHeight = 24.sp
-                            )
-                        } else {
-                            MarkdownText(
-                                markdown = message.text,
-                                color = contentColor
+        Card(
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+            shape = shape,
+            modifier = Modifier.widthIn(max = 300.dp)
+        ) {
+            SelectionContainer {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp)) {
+                    if (isUser) {
+                        Text(
+                            text = message.text,
+                            color = contentColor,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+                    } else {
+                        MarkdownText(
+                            markdown = message.text,
+                            color = contentColor
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = timestamp,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentColor.copy(alpha = 0.5f)
+                        )
+                        if (!isUser) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = contentColor.copy(alpha = 0.4f),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("message", message.text))
+                                    }
                             )
                         }
                     }
                 }
             }
-            Text(
-                text = timestamp,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, start = 8.dp, end = 8.dp)
-            )
         }
     }
 }
@@ -581,6 +638,50 @@ fun SpeakingIndicator(onStop: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = onStop, modifier = Modifier.size(24.dp)) {
                 Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop_description), tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        }
+    }
+}
+
+@Composable
+fun PendingToolsIndicator(toolCalls: List<String>) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Running tools",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                toolCalls.take(5).forEach { call ->
+                    val toolName = call.split(" ").firstOrNull() ?: call
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(toolName, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.height(28.dp)
+                    )
+                }
             }
         }
     }

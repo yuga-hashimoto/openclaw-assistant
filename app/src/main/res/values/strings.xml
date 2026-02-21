@@ -133,6 +133,11 @@
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">Custom…</string>
     
+    <!-- Hotword Action Card -->
+    <string name="hotword_title">Wake Word\n\"%s\"</string>
+    <string name="hotword_listening">On</string>
+    <string name="hotword_tap_to_enable">Off</string>
+    
 
     <!-- Permission handling -->
     <string name="mic_permission_rationale_title">Microphone Permission Required</string>
@@ -211,4 +216,46 @@
     <string name="support_section">Support</string>
     <string name="report_issue">Report Issue</string>
     <string name="report_issue_desc">Found a bug or have a feature request? Let us know on GitHub.</string>
+
+    <!-- Device Node & Capabilities -->
+    <string name="capabilities_title">Capabilities</string>
+    <string name="capability_camera">Camera</string>
+    <string name="capability_talk">Talk</string>
+    <string name="capability_location">Location</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="setup_required_hint">Please configure connection in Settings</string>
+
+    <!-- Gateway Settings -->
+    <string name="settings_gateway_title">Gateway Connection</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="offline">Offline</string>
+    <string name="gateway_discovery_active">Discovery active...</string>
+    <string name="gateway_manual_connection">Manual Connection</string>
+    <string name="gateway_manual_desc">Connect to specific host/port</string>
+    <string name="gateway_host">Host</string>
+    <string name="gateway_port">Port</string>
+    <string name="gateway_port_error">Invalid port</string>
+    <string name="gateway_token">Token</string>
+    <string name="gateway_use_tls">Use TLS</string>
+    <string name="gateway_invalid_params">Invalid host or port</string>
+    <string name="gateway_settings_applied">Settings applied</string>
+    <string name="apply">Apply</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="gateway_discovery_hint">Searching for gateway...</string>
+    <string name="connect">Connect</string>
+    <string name="gateway_foreground_service">Foreground Service</string>
+    <string name="gateway_foreground_desc">Keep running in background</string>
+    <string name="gateway_use_node_chat">Use Node Chat</string>
+    <string name="gateway_use_node_chat_desc">Route chat via gateway</string>
+
+    <!-- Operator Offline Warning -->
+    <string name="operator_offline_title">Operator Offline / Permission Needed</string>
+    <string name="operator_offline_message">Your device is connected, but the AI lacks permission to operate it.\n\nPlease run the following command on your server to grant operator access:</string>
+    <string name="operator_offline_command">openclaw devices --scopes operator.read,operator.write approve %s</string>
+    <string name="operator_offline_copy">Copy Command</string>
+    <string name="operator_offline_copied">Command copied to clipboard</string>
+
+    <!-- Legacy Settings -->
+    <string name="settings_legacy_title">Legacy Connection (Webhook)</string>
+    <string name="settings_legacy_desc">Direct connection to LLM API without Gateway</string>
 </resources>

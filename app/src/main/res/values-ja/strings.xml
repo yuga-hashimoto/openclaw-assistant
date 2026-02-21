@@ -109,6 +109,11 @@
     <string name="wake_word_computer">Computer</string>
     <string name="wake_word_custom">カスタム…</string>
 
+    <!-- Hotword Action Card -->
+    <string name="hotword_title">ウェイクワード\n「%s」</string>
+    <string name="hotword_listening">On</string>
+    <string name="hotword_tap_to_enable">Off</string>
+
     <!-- Permission handling -->
     <string name="mic_permission_rationale_title">マイクの権限が必要です</string>
     <string name="mic_permission_rationale_message">ウェイクワード検知には、音声コマンドを聞き取るためにマイクへのアクセスが必要です。この権限がないと、ウェイクワード検知は動作しません。\n\n次の画面でマイクの権限を許可してください。</string>
@@ -179,4 +184,46 @@
     <string name="support_section">サポート</string>
     <string name="report_issue">問題を報告</string>
     <string name="report_issue_desc">バグの報告や機能のリクエストはこちらから（GitHub）</string>
+
+    <!-- Device Node & Capabilities -->
+    <string name="capabilities_title">デバイス機能</string>
+    <string name="capability_camera">カメラ</string>
+    <string name="capability_talk">会話</string>
+    <string name="capability_location">位置情報</string>
+    <string name="diagnostics_title">診断</string>
+    <string name="setup_required_hint">設定画面で接続設定を行ってください</string>
+
+    <!-- Gateway Settings -->
+    <string name="settings_gateway_title">Gateway接続</string>
+    <string name="disconnected">未接続</string>
+    <string name="offline">オフライン</string>
+    <string name="gateway_discovery_active">Gatewayを検索中...</string>
+    <string name="gateway_manual_connection">手動接続</string>
+    <string name="gateway_manual_desc">特定のホスト/ポートに接続</string>
+    <string name="gateway_host">ホスト</string>
+    <string name="gateway_port">ポート</string>
+    <string name="gateway_port_error">無効なポート番号</string>
+    <string name="gateway_token">トークン</string>
+    <string name="gateway_use_tls">TLSを使用</string>
+    <string name="gateway_invalid_params">ホストまたはポートが無効です</string>
+    <string name="gateway_settings_applied">設定を適用しました</string>
+    <string name="apply">適用</string>
+    <string name="disconnect">切断</string>
+    <string name="gateway_discovery_hint">Gatewayを検索中...</string>
+    <string name="connect">接続</string>
+    <string name="gateway_foreground_service">フォアグラウンドサービス</string>
+    <string name="gateway_foreground_desc">バックグラウンド実行を維持</string>
+    <string name="gateway_use_node_chat">Node Chatを使用</string>
+    <string name="gateway_use_node_chat_desc">Gateway経由でチャットを行う</string>
+
+    <!-- Operator Offline Warning -->
+    <string name="operator_offline_title">オペレーター権限が必要です</string>
+    <string name="operator_offline_message">デバイスは接続されていますが、AIに操作権限がありません。\n\nサーバー上で以下のコマンドを実行して、権限を付与してください：</string>
+    <string name="operator_offline_command">openclaw devices --scopes operator.read,operator.write approve %s</string>
+    <string name="operator_offline_copy">コマンドをコピー</string>
+    <string name="operator_offline_copied">クリップボードにコピーしました</string>
+
+    <!-- Legacy Settings -->
+    <string name="settings_legacy_title">レガシー接続 (Webhook)</string>
+    <string name="settings_legacy_desc">Gatewayを使用せずLLM APIに直接接続</string>
 </resources>

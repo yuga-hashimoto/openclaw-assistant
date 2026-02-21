@@ -28,11 +28,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openclaw.assistant.api.OpenClawClient
 import com.openclaw.assistant.data.SettingsRepository
+import com.openclaw.assistant.service.NodeForegroundService
 import com.openclaw.assistant.service.HotwordService
+import com.openclaw.assistant.ui.components.CollapsibleSection
+import com.openclaw.assistant.ui.components.ConnectionState
 import com.openclaw.assistant.ui.components.PairingRequiredCard
+import com.openclaw.assistant.ui.components.StatusIndicator
 import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.openclaw.assistant.utils.SystemInfoProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -80,6 +85,7 @@ fun SettingsScreen(
     var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat().coerceIn(5000f, 30000f)) }
     var speechLanguage by remember { mutableStateOf(settings.speechLanguage) }
     var thinkingSoundEnabled by remember { mutableStateOf(settings.thinkingSoundEnabled) }
+    var useNodeChat by remember { mutableStateOf(settings.useNodeChat) }
 
     var showAuthToken by remember { mutableStateOf(false) }
     var showWakeWordMenu by remember { mutableStateOf(false) }
@@ -87,6 +93,9 @@ fun SettingsScreen(
     
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val runtime = remember(context.applicationContext) {
+        (context.applicationContext as OpenClawApplication).nodeRuntime
+    }
     val apiClient = remember { OpenClawClient() }
     
     var isTesting by remember { mutableStateOf(false) }
@@ -108,6 +117,20 @@ fun SettingsScreen(
     var ttsEngine by remember { mutableStateOf(settings.ttsEngine) }
     var availableEngines by remember { mutableStateOf<List<com.openclaw.assistant.speech.TTSEngineUtils.EngineInfo>>(emptyList()) }
     var showEngineMenu by remember { mutableStateOf(false) }
+    var showNodeToken by remember { mutableStateOf(false) }
+
+    val nodeConnected by runtime.isConnected.collectAsState()
+    val nodeStatus by runtime.statusText.collectAsState()
+    val nodeForeground by runtime.isForeground.collectAsState()
+    val manualEnabledState by runtime.manualEnabled.collectAsState()
+    val manualHostState by runtime.manualHost.collectAsState()
+    val manualPortState by runtime.manualPort.collectAsState()
+    val manualTlsState by runtime.manualTls.collectAsState()
+    val gatewayTokenState by runtime.gatewayToken.collectAsState()
+
+    var manualHostInput by remember(manualHostState) { mutableStateOf(manualHostState) }
+    var manualPortInput by remember(manualPortState) { mutableStateOf(manualPortState.toString()) }
+    var gatewayTokenInput by remember(gatewayTokenState) { mutableStateOf(gatewayTokenState) }
 
     LaunchedEffect(Unit) {
         availableEngines = com.openclaw.assistant.speech.TTSEngineUtils.getAvailableEngines(context)
@@ -184,6 +207,7 @@ fun SettingsScreen(
                             settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
                             settings.speechLanguage = speechLanguage
                             settings.thinkingSoundEnabled = thinkingSoundEnabled
+                            settings.useNodeChat = useNodeChat
                             if (settings.hotwordEnabled) {
                                 HotwordService.start(context)
                             }
@@ -211,13 +235,7 @@ fun SettingsScreen(
                 }
 
             // === CONNECTION SECTION ===
-            Text(
-                text = stringResource(R.string.connection),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
+            CollapsibleSection(title = stringResource(R.string.connection), collapsible = false) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -264,10 +282,6 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -478,16 +492,202 @@ fun SettingsScreen(
                     }
                 }
             }
+            } // end CollapsibleSection for Connection
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // === DEVICE NODE SECTION ===
+            CollapsibleSection(
+                title = "Device Node",
+                subtitle = if (nodeConnected) nodeStatus.ifBlank { "Connected" } else "Disconnected",
+                initiallyExpanded = false
+            ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    StatusIndicator(
+                        state = if (nodeConnected) ConnectionState.Connected else ConnectionState.Disconnected,
+                        label = if (nodeConnected) "Connected" else "Offline"
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Keep node in foreground", style = MaterialTheme.typography.bodyLarge)
+                            Text("Enable persistent notification and runtime keepalive", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = nodeForeground,
+                            onCheckedChange = { enabled ->
+                                runtime.setForeground(enabled)
+                                if (enabled) NodeForegroundService.start(context) else NodeForegroundService.stop(context)
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Use manual gateway", style = MaterialTheme.typography.bodyLarge)
+                            Text("Connect to a fixed host/port instead of discovery", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = manualEnabledState,
+                            onCheckedChange = { runtime.setManualEnabled(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = manualHostInput,
+                        onValueChange = { manualHostInput = it.trim() },
+                        label = { Text("Gateway Host") },
+                        placeholder = { Text("e.g. 192.168.1.100") },
+                        leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = manualEnabledState,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val portInt = manualPortInput.toIntOrNull()
+                    val isPortValid = portInt != null && portInt in 1..65535
+                    OutlinedTextField(
+                        value = manualPortInput,
+                        onValueChange = { manualPortInput = it.filter { ch -> ch.isDigit() } },
+                        label = { Text("Gateway Port") },
+                        placeholder = { Text("18789") },
+                        leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        enabled = manualEnabledState,
+                        isError = manualPortInput.isNotEmpty() && !isPortValid,
+                        supportingText = if (manualPortInput.isNotEmpty() && !isPortValid) {
+                            { Text("Port must be 1-65535") }
+                        } else null,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = gatewayTokenInput,
+                        onValueChange = { gatewayTokenInput = it.trim() },
+                        label = { Text("Gateway Token (optional)") },
+                        leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { showNodeToken = !showNodeToken }) {
+                                Icon(
+                                    if (showNodeToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        visualTransformation = if (showNodeToken) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = manualEnabledState,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Use TLS", style = MaterialTheme.typography.bodyLarge)
+                        Switch(
+                            checked = manualTlsState,
+                            onCheckedChange = { runtime.setManualTls(it) },
+                            enabled = manualEnabledState
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Use Node Chat backend", style = MaterialTheme.typography.bodyLarge)
+                            Text("Route chat via gateway chat.send and tool-calls", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = useNodeChat,
+                            onCheckedChange = { useNodeChat = it }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = manualEnabledState,
+                            onClick = {
+                                val port = manualPortInput.toIntOrNull()
+                                if (manualHostInput.isBlank() || port == null || port !in 1..65535) {
+                                    Toast.makeText(context, "Manual host/port is invalid", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    runtime.setManualHost(manualHostInput)
+                                    runtime.setManualPort(port)
+                                    runtime.setGatewayToken(gatewayTokenInput)
+                                    Toast.makeText(context, "Manual gateway settings applied", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
+                            Text("Apply")
+                        }
+
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            enabled = manualEnabledState,
+                            onClick = {
+                                runtime.connectManual()
+                                if (nodeForeground) NodeForegroundService.start(context)
+                            }
+                        ) {
+                            Text("Connect")
+                        }
+
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = { runtime.disconnect() }
+                        ) {
+                            Text("Disconnect")
+                        }
+                    }
+                }
+            }
+            } // end CollapsibleSection for Device Node
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // === VOICE SECTION ===
-            Text(
-                text = stringResource(R.string.voice),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            CollapsibleSection(title = stringResource(R.string.voice)) {
 
             // --- Speech Language card ---
             Card(
@@ -757,15 +957,12 @@ fun SettingsScreen(
                 }
             }
 
+            } // end CollapsibleSection for Voice
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // === WAKE WORD SECTION ===
-            Text(
-                text = stringResource(R.string.wake_word),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            CollapsibleSection(title = stringResource(R.string.wake_word)) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -843,15 +1040,12 @@ fun SettingsScreen(
                 }
             }
 
+            } // end CollapsibleSection for Wake Word
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // === SUPPORT SECTION ===
-            Text(
-                text = stringResource(R.string.support_section),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            CollapsibleSection(title = stringResource(R.string.support_section), collapsible = false) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -889,6 +1083,8 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            } // end CollapsibleSection for Support
 
             Spacer(modifier = Modifier.height(32.dp))
         }
