@@ -36,7 +36,7 @@ class SpeechRecognizerManager(private val context: Context) {
      * 音声認識を開始し、結果をFlowで返す
      * language が null の場合はシステムデフォルトを使用する
      */
-    fun startListening(language: String? = null, silenceTimeoutMs: Long = 2500L): Flow<SpeechResult> = callbackFlow {
+    fun startListening(language: String? = null, silenceTimeoutMs: Long = 2000L): Flow<SpeechResult> = callbackFlow {
         // デフォルト言語の決定
         val targetLanguage = language ?: Locale.getDefault().toLanguageTag()
         
