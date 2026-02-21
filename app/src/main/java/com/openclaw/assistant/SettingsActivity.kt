@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.openclaw.assistant.api.OpenClawClient
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.service.HotwordService
+import com.openclaw.assistant.ui.components.PairingRequiredCard
 import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
@@ -93,6 +94,9 @@ fun SettingsScreen(
 
     // Agent list from gateway
     val gatewayClient = remember { GatewayClient.getInstance() }
+    val isPairingRequired by gatewayClient.isPairingRequired.collectAsState()
+    val deviceId = gatewayClient.deviceId
+
     val agentListState by gatewayClient.agentList.collectAsState()
     val availableAgents = remember(agentListState) { 
         agentListState?.agents?.distinctBy { it.id } ?: emptyList() 
@@ -200,6 +204,12 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+                // Show pairing required banner if needed
+                if (isPairingRequired && deviceId != null) {
+                    PairingRequiredCard(deviceId = deviceId)
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
             // === CONNECTION SECTION ===
             Text(
                 text = stringResource(R.string.connection),

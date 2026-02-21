@@ -124,13 +124,18 @@ class GatewayClient(context: android.content.Context) {
     // --- Public API ---
 
     fun connect(host: String, port: Int = 18789, token: String? = null, useTls: Boolean = false) {
+        val changed = desiredHost != host || desiredPort != port || desiredToken != token || desiredUseTls != useTls
+
         desiredHost = host
         desiredPort = port
         desiredToken = token
         desiredUseTls = useTls
 
-        if (runLoopJob == null) {
-            runLoopJob = scope.launch { runLoop() }
+        if (runLoopJob == null || changed) {
+            scope.launch {
+                runLoopJob?.cancelAndJoin()
+                runLoopJob = scope.launch { runLoop() }
+            }
         }
     }
 
@@ -144,6 +149,17 @@ class GatewayClient(context: android.content.Context) {
             _connectionState.value = ConnectionState.DISCONNECTED
             _streamingText.value = null
             _agentList.value = null
+        }
+    }
+
+    /**
+     * Force an immediate reconnection attempt, cancelling any current backoff delay.
+     */
+    fun reconnect() {
+        Log.d(TAG, "Manual reconnect requested")
+        scope.launch {
+            runLoopJob?.cancelAndJoin()
+            runLoopJob = scope.launch { runLoop() }
         }
     }
 
