@@ -197,6 +197,15 @@ class SpeechRecognizerManager(private val context: Context) {
     }
 
     /**
+     * Returns the name of the currently selected/available recognition service.
+     */
+    fun getRecognitionServiceName(): String {
+        val appContext = context.applicationContext
+        val component = findRecognitionService(appContext)
+        return component?.flattenToShortString() ?: "System Default"
+    }
+
+    /**
      * Find a real speech recognition service, skipping our own stub service.
      * This app registers a no-op RecognitionService (required for VoiceInteractionService),
      * which some devices may select as the default, breaking SpeechRecognizer.

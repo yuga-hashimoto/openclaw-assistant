@@ -179,4 +179,9 @@
     <string name="support_section">サポート</string>
     <string name="report_issue">問題を報告</string>
     <string name="report_issue_desc">バグの報告や機能のリクエストはこちらから（GitHub）</string>
+    <string name="voice_reliability_check">音声機能の安定性チェック</string>
+    <string name="run_check">チェックを開始</string>
+    <string name="check_complete">チェック完了！</string>
+    <string name="copy_report">レポートをコピー</string>
+    <string name="report_copied">レポートをクリップボードにコピーしました</string>
 </resources>

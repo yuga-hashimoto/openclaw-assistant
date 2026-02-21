@@ -264,8 +264,14 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     private var listeningJob: Job? = null
     private var speakingJob: Job? = null
+    private var sttRetryCount = 0
+    private val MAX_STT_RETRIES = 3
 
     private fun startListening() {
+        // Cancel any ongoing speaking before starting to listen
+        speakingJob?.cancel()
+        ttsManager.stop()
+
         listeningJob?.cancel()
         
         currentState.value = AssistantState.PROCESSING
@@ -302,6 +308,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     speechManager.startListening(settings.speechLanguage.ifEmpty { null }, settings.speechSilenceTimeout).collectLatest { result ->
                         when (result) {
                             is SpeechResult.Ready -> {
+                                sttRetryCount = 0 // Reset retry count on successful init
                                 currentState.value = AssistantState.LISTENING
                                 toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP)
                             }
@@ -324,6 +331,7 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                                 }
                             }
                             is SpeechResult.Result -> {
+                                sttRetryCount = 0 // Reset retry count on successful result
                                 hasActuallySpoken = true
                                 userQuery.value = result.text
                                 sendToOpenClaw(result.text)
@@ -333,9 +341,12 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                                 val isTimeout = result.code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
                                               result.code == SpeechRecognizer.ERROR_NO_MATCH
 
-                                if (isTimeout && settings.continuousMode && elapsed < 10000) {
-                                    Log.d(TAG, "Speech timeout within 10s window ($elapsed ms), retrying...")
-                                } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                                if (isTimeout && settings.continuousMode && elapsed < 10000 && sttRetryCount < MAX_STT_RETRIES) {
+                                    sttRetryCount++
+                                    Log.d(TAG, "Speech timeout within 10s window ($elapsed ms), retrying... ($sttRetryCount/$MAX_STT_RETRIES)")
+                                } else if (result.code == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && sttRetryCount < MAX_STT_RETRIES) {
+                                    sttRetryCount++
+                                    Log.d(TAG, "Recognizer busy, retrying... ($sttRetryCount/$MAX_STT_RETRIES)")
                                     speechManager.destroy()
                                     delay(1000)
                                 } else if (isTimeout) {
@@ -467,6 +478,9 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
     }
 
     private fun speakResponse(text: String) {
+        // Cancel any ongoing listening before starting to speak
+        listeningJob?.cancel()
+
         stopThinkingSound()
         currentState.value = AssistantState.SPEAKING
         val cleanText = TTSUtils.stripMarkdownForSpeech(text)

@@ -211,4 +211,9 @@
     <string name="support_section">Support</string>
     <string name="report_issue">Report Issue</string>
     <string name="report_issue_desc">Found a bug or have a feature request? Let us know on GitHub.</string>
+    <string name="voice_reliability_check">Voice Reliability Check</string>
+    <string name="run_check">Run Check</string>
+    <string name="check_complete">Check complete!</string>
+    <string name="copy_report">Copy Report</string>
+    <string name="report_copied">Report copied to clipboard</string>
 </resources>

@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,10 @@ import com.openclaw.assistant.service.HotwordService
 import com.openclaw.assistant.ui.components.PairingRequiredCard
 import com.openclaw.assistant.gateway.AgentInfo
 import com.openclaw.assistant.gateway.GatewayClient
+import com.openclaw.assistant.speech.SpeechRecognizerManager
+import com.openclaw.assistant.speech.TTSManager
+import com.openclaw.assistant.speech.diagnostics.ReliabilityStep
+import com.openclaw.assistant.speech.diagnostics.VoiceDiagnostics
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 import com.openclaw.assistant.utils.SystemInfoProvider
 import kotlinx.coroutines.delay
@@ -91,6 +96,7 @@ fun SettingsScreen(
     
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<TestResult?>(null) }
+    var showVoiceCheckDialog by remember { mutableStateOf(false) }
 
     // Agent list from gateway
     val gatewayClient = remember { GatewayClient.getInstance() }
@@ -861,6 +867,30 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = stringResource(R.string.voice_reliability_check),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "Verify voice input/output and generate diagnostic report.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { showVoiceCheckDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.voice_reliability_check))
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+
+                    Text(
                         text = stringResource(R.string.report_issue),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -892,7 +922,118 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+
+        if (showVoiceCheckDialog) {
+            VoiceReliabilityDialog(
+                onDismiss = { showVoiceCheckDialog = false },
+                settings = settings
+            )
+        }
     }
+}
+
+@Composable
+fun VoiceReliabilityDialog(
+    onDismiss: () -> Unit,
+    settings: SettingsRepository
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val diagnostics = remember { VoiceDiagnostics(context) }
+
+    var currentStep by remember { mutableStateOf<ReliabilityStep?>(null) }
+    var statusMessage by remember { mutableStateOf("Ready to start check.") }
+    var isRunning by remember { mutableStateOf(false) }
+    var report by remember { mutableStateOf<String?>(null) }
+    var checkPassed by remember { mutableStateOf<Boolean?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isRunning) onDismiss() },
+        title = { Text(stringResource(R.string.voice_reliability_check)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                if (isRunning) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Text(
+                    text = statusMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (checkPassed == false) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
+
+                if (report != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = report!!,
+                            modifier = Modifier.padding(8.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (report == null) {
+                Button(
+                    onClick = {
+                        isRunning = true
+                        checkPassed = null
+                        scope.launch {
+                            val tts = TTSManager(context)
+                            val speech = SpeechRecognizerManager(context)
+                            try {
+                                val success = diagnostics.runReliabilityCheck(tts, speech) { step, msg ->
+                                    currentStep = step
+                                    statusMessage = msg
+                                }
+                                checkPassed = success
+                                if (success) {
+                                    statusMessage = context.getString(R.string.check_complete)
+                                }
+                            } catch (e: Exception) {
+                                checkPassed = false
+                                statusMessage = "Check failed with exception: ${e.message}"
+                            } finally {
+                                isRunning = false
+                                report = diagnostics.generateDiagnosticReport(settings)
+                                tts.shutdown()
+                                speech.destroy()
+                            }
+                        }
+                    },
+                    enabled = !isRunning
+                ) {
+                    Text(stringResource(R.string.run_check))
+                }
+            } else {
+                Button(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("Voice Diagnostic Report", report)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, R.string.report_copied, Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.copy_report))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isRunning) {
+                Text(if (report == null) stringResource(R.string.cancel) else stringResource(R.string.got_it))
+            }
+        }
+    )
 }
 
 data class TestResult(
