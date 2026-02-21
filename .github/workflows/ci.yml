@@ -105,8 +105,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Debug and Release APKs
-        run: ./gradlew assembleDebug assembleRelease
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Run Lint
         run: ./gradlew lint
@@ -116,9 +116,3 @@ jobs:
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
