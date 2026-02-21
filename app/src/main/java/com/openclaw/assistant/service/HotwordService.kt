@@ -32,7 +32,7 @@ import java.io.IOException
 import org.json.JSONObject
 
 /**
- * ホットワード検知サービス (Vosk)
+ * Hotword detection service (Vosk)
  */
 class HotwordService : Service(), VoskRecognitionListener {
 

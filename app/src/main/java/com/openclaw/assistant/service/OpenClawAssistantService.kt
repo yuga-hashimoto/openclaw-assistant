@@ -17,7 +17,7 @@ import androidx.core.content.ContextCompat
 
 /**
  * Voice Interaction Service
- * ホームボタン長押しでシステムアシスタントとして起動
+ * Launched as a system assistant with a long press of the home button
  */
 class OpenClawAssistantService : VoiceInteractionService() {
 
