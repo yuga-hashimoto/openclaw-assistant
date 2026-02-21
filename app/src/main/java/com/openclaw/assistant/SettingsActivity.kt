@@ -77,6 +77,7 @@ fun SettingsScreen(
     var wakeWordPreset by remember { mutableStateOf(settings.wakeWordPreset) }
     var customWakeWord by remember { mutableStateOf(settings.customWakeWord) }
     var speechSilenceTimeout by remember { mutableStateOf(settings.speechSilenceTimeout.toFloat().coerceIn(5000f, 30000f)) }
+    var speechRecognitionCompleteTimeout by remember { mutableStateOf(settings.speechRecognitionCompleteTimeout.toFloat().coerceIn(500f, 5000f)) }
     var speechLanguage by remember { mutableStateOf(settings.speechLanguage) }
     var thinkingSoundEnabled by remember { mutableStateOf(settings.thinkingSoundEnabled) }
 
@@ -178,6 +179,7 @@ fun SettingsScreen(
                             settings.wakeWordPreset = wakeWordPreset
                             settings.customWakeWord = customWakeWord
                             settings.speechSilenceTimeout = speechSilenceTimeout.toLong()
+                            settings.speechRecognitionCompleteTimeout = speechRecognitionCompleteTimeout.toLong()
                             settings.speechLanguage = speechLanguage
                             settings.thinkingSoundEnabled = thinkingSoundEnabled
                             if (settings.hotwordEnabled) {
@@ -742,6 +744,33 @@ fun SettingsScreen(
                         onValueChange = { speechSilenceTimeout = it },
                         valueRange = 5000f..30000f,
                         steps = 4,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+
+                    // Speech recognition complete timeout
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.speech_recognition_complete_timeout), style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.speech_recognition_complete_timeout_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Text(
+                            text = "%.1fs".format(speechRecognitionCompleteTimeout / 1000f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Slider(
+                        value = speechRecognitionCompleteTimeout,
+                        onValueChange = { speechRecognitionCompleteTimeout = it },
+                        valueRange = 500f..5000f,
+                        steps = 8,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

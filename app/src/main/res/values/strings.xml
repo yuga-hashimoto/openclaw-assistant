@@ -108,8 +108,10 @@
     <string name="auto_start_mic">Auto-start mic after AI speaks</string>
     <string name="resume_latest_session">Resume Latest Session</string>
     <string name="resume_latest_session_desc">Continue previous conversation on activation</string>
-    <string name="speech_silence_timeout">Silence Timeout</string>
-    <string name="speech_silence_timeout_desc">Wait time after speech pause</string>
+    <string name="speech_silence_timeout">Initial Silence Timeout</string>
+    <string name="speech_silence_timeout_desc">Wait time for speech to start</string>
+    <string name="speech_recognition_complete_timeout">Completion Timeout</string>
+    <string name="speech_recognition_complete_timeout_desc">Wait time after speech to end</string>
     <string name="speech_language_label">Speech Language</string>
     <string name="speech_language_desc">Language for voice recognition and responses</string>
     <string name="conversation_section">Conversation</string>
