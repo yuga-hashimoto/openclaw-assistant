@@ -45,7 +45,7 @@ class OpenClawClient {
         try {
             // OpenAI Chat Completions format for /v1/chat/completions
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw")
+                addProperty("model", agentId ?: "openclaw")
                 addProperty("user", sessionId)
                 val messagesArray = JsonArray()
                 val userMessage = JsonObject().apply {
@@ -109,7 +109,8 @@ class OpenClawClient {
      */
     suspend fun testConnection(
         webhookUrl: String,
-        authToken: String?
+        authToken: String?,
+        modelName: String? = null
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         if (webhookUrl.isBlank()) {
             return@withContext Result.failure(
@@ -145,7 +146,7 @@ class OpenClawClient {
 
             // Fallback: POST with minimal OpenAI format
             val requestBody = JsonObject().apply {
-                addProperty("model", "openclaw")
+                addProperty("model", modelName ?: "openclaw")
                 addProperty("user", "connection-test")
                 val messagesArray = JsonArray()
                 val testMessage = JsonObject().apply {
