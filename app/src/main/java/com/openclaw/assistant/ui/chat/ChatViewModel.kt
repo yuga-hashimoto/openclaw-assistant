@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.openclaw.assistant.api.OpenClawClient
 import com.openclaw.assistant.data.SettingsRepository
 import com.openclaw.assistant.gateway.AgentInfo
+import com.openclaw.assistant.gateway.ConnectionState
 import com.openclaw.assistant.gateway.GatewayClient
 import com.openclaw.assistant.speech.SpeechRecognizerManager
 import com.openclaw.assistant.speech.SpeechResult
@@ -44,7 +45,9 @@ data class ChatUiState(
     val selectedAgentId: String? = null, // null = use default from settings
     val defaultAgentId: String = "main", // From settings, for display when agent list unavailable
     val isPairingRequired: Boolean = false,
-    val deviceId: String? = null
+    val deviceId: String? = null,
+    val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
+    val isGatewayHealthOk: Boolean = true
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -90,6 +93,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Messages Flow - mapped from current Session ID
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val _messagesFlow = _currentSessionId.flatMapLatest { sessionId ->
          if (sessionId != null) {
              chatRepository.getMessages(sessionId).map { entities ->
@@ -143,6 +147,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        // Observe connection state
+        viewModelScope.launch {
+            gatewayClient.connectionState.collect { state ->
+                _uiState.update { it.copy(connectionState = state) }
+                if (state == ConnectionState.CONNECTED) {
+                    checkHealth()
+                }
+            }
+        }
+
+        // Poll health periodically
+        viewModelScope.launch {
+            while (isActive) {
+                if (gatewayClient.isConnected()) {
+                    checkHealth()
+                }
+                delay(30_000)
+            }
+        }
+
         // Initialize default agent from settings
         val savedAgentId = settings.defaultAgentId
         if (savedAgentId.isNotBlank() && savedAgentId != "main") {
@@ -192,6 +216,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun selectSession(sessionId: String) {
         _currentSessionId.value = sessionId
         settings.sessionId = sessionId
+    }
+
+    private suspend fun checkHealth() {
+        try {
+            val ok = gatewayClient.checkHealth()
+            _uiState.update { it.copy(isGatewayHealthOk = ok) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isGatewayHealthOk = false) }
+        }
+    }
+
+    fun retryConnection() {
+        viewModelScope.launch {
+            gatewayClient.disconnect()
+            delay(500)
+            connectGatewayIfNeeded()
+        }
     }
 
     fun deleteSession(sessionId: String) {

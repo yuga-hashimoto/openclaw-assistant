@@ -159,6 +159,14 @@
     <!-- Agent -->
     <string name="agent_default">デフォルト</string>
 
+    <!-- Gateway Status -->
+    <string name="gateway_connected">接続済み</string>
+    <string name="gateway_connecting">接続中…</string>
+    <string name="gateway_reconnecting">再接続中…</string>
+    <string name="gateway_disconnected">切断済み</string>
+    <string name="gateway_error">ゲートウェイエラー</string>
+    <string name="retry">再試行</string>
+
     <!-- Pairing -->
     <string name="pairing_required_title">デバイスのペアリングが必要です</string>
     <string name="pairing_required_desc">このデバイスはまだサーバーで承認されていません。サーバーで以下のコマンドを実行して承認してください：</string>
