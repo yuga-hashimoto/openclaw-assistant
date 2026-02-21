@@ -100,6 +100,16 @@
     <string name="voice">Voice</string>
     <string name="wake_word">Wake Word</string>
     <string name="voice_output">Voice Output</string>
+    <string name="voice_output_mode_label">Output Mode</string>
+    <string name="voice_mode_system">System TTS</string>
+    <string name="voice_mode_external">External Provider</string>
+    <string name="external_provider_settings">External Provider Settings</string>
+    <string name="api_key_label">API Key</string>
+    <string name="voice_id_label">Voice ID / Model ID</string>
+    <string name="output_format_label">Output Format</string>
+    <string name="test_voice_output">Test Voice Output</string>
+    <string name="test_voice_text">This is a test of the OpenClaw voice output system.</string>
+    <string name="active_provider_label">Active Provider</string>
     <string name="voice_speed">Voice Speed</string>
     <string name="tts_engine_label">TTS Engine</string>
     <string name="tts_engine_auto">Auto (Default)</string>

@@ -11,8 +11,12 @@ object SystemInfoProvider {
         val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}"
         val androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
 
-        val ttsEngine = if (settings.ttsEnabled) {
-            settings.ttsEngine.ifEmpty { "System Default" }
+        val voiceMode = if (settings.ttsEnabled) {
+            if (settings.voiceOutputMode == SettingsRepository.VOICE_MODE_EXTERNAL) {
+                "External Provider (${settings.externalVoiceId})"
+            } else {
+                "System TTS (${settings.ttsEngine.ifEmpty { "Default" }})"
+            }
         } else {
             "Disabled"
         }
@@ -26,7 +30,7 @@ object SystemInfoProvider {
             - Device: $deviceModel
             - Android Version: $androidVersion
             - Language: $language
-            - TTS Engine: $ttsEngine
+            - Voice Output: $voiceMode
             - Wake Word: $wakeWord
         """.trimIndent()
     }
