@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -429,7 +431,7 @@ fun ChatScreen(
                                 DateHeader(item.dateText)
                             }
                             is ChatListItem.MessageItem -> {
-                                MessageBubble(message = item.message)
+                                MessageBubble(message = item.message, onAction = onSendMessage)
                             }
                         }
                     }
@@ -472,8 +474,9 @@ fun DateHeader(dateText: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MessageBubble(message: ChatMessage) {
+fun MessageBubble(message: ChatMessage, onAction: (String) -> Unit = {}) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val containerColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
@@ -488,6 +491,14 @@ fun MessageBubble(message: ChatMessage) {
 
     val timestamp = remember(message.timestamp) {
         java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(java.util.Date(message.timestamp))
+    }
+
+    val approvalCommands = remember(message.text) {
+        if (isUser) emptyList()
+        else {
+            val regex = Regex("/(approve|deny|allow-once|allow-always|allow)\\b")
+            regex.findAll(message.text).map { it.value }.distinct().toList()
+        }
     }
 
     Box(
@@ -514,6 +525,34 @@ fun MessageBubble(message: ChatMessage) {
                                 markdown = message.text,
                                 color = contentColor
                             )
+
+                            if (approvalCommands.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    approvalCommands.forEach { command ->
+                                        val label = when (command) {
+                                            "/approve" -> stringResource(R.string.action_approve)
+                                            "/deny" -> stringResource(R.string.action_deny)
+                                            "/allow-once" -> stringResource(R.string.action_allow_once)
+                                            "/allow-always" -> stringResource(R.string.action_allow_always)
+                                            "/allow" -> stringResource(R.string.action_allow)
+                                            else -> command.removePrefix("/")
+                                        }
+                                        AssistChip(
+                                            onClick = { onAction(command) },
+                                            label = { Text(label) },
+                                            colors = AssistChipDefaults.assistChipColors(
+                                                labelColor = contentColor,
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

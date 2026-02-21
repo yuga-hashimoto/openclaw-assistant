@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,7 +153,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
                     audioLevel = audioLevel.value,
                     onClose = { finish() },
                     onRetry = { startListening() },
-                    onInterrupt = { interruptAndListen() }
+                    onInterrupt = { interruptAndListen() },
+                    onAction = { sendToOpenClaw(it) }
                 )
             }
         }
@@ -530,6 +532,7 @@ enum class AssistantState {
 /**
  * Assistant UI (Compose)
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AssistantUI(
     state: AssistantState,
@@ -540,7 +543,8 @@ fun AssistantUI(
     audioLevel: Float,
     onClose: () -> Unit,
     onRetry: () -> Unit,
-    onInterrupt: () -> Unit = {}
+    onInterrupt: () -> Unit = {},
+    onAction: (String) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -682,13 +686,44 @@ fun AssistantUI(
 
             // Main text
             if (displayText.isNotBlank() && state != AssistantState.LISTENING) {
-                Text(
-                    text = displayText,
-                    fontSize = 18.sp,
-                    color = Color.Black,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = displayText,
+                        fontSize = 18.sp,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    val approvalCommands = remember(displayText) {
+                        val regex = Regex("/(approve|deny|allow-once|allow-always|allow)\\b")
+                        regex.findAll(displayText).map { it.value }.distinct().toList()
+                    }
+
+                    if (approvalCommands.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            approvalCommands.forEach { command ->
+                                val label = when (command) {
+                                    "/approve" -> stringResource(R.string.action_approve)
+                                    "/deny" -> stringResource(R.string.action_deny)
+                                    "/allow-once" -> stringResource(R.string.action_allow_once)
+                                    "/allow-always" -> stringResource(R.string.action_allow_always)
+                                    "/allow" -> stringResource(R.string.action_allow)
+                                    else -> command.removePrefix("/")
+                                }
+                                AssistChip(
+                                    onClick = { onAction(command) },
+                                    label = { Text(label) },
+                                    modifier = Modifier.padding(4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Error message

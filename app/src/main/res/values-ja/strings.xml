@@ -179,4 +179,11 @@
     <string name="support_section">サポート</string>
     <string name="report_issue">問題を報告</string>
     <string name="report_issue_desc">バグの報告や機能のリクエストはこちらから（GitHub）</string>
+
+    <!-- Approval Buttons -->
+    <string name="action_approve">承認</string>
+    <string name="action_deny">拒否</string>
+    <string name="action_allow_once">1回許可</string>
+    <string name="action_allow_always">常に許可</string>
+    <string name="action_allow">許可</string>
 </resources>
