@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -50,6 +51,8 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.openclaw.assistant.ui.theme.OpenClawAssistantTheme
 
 /**
@@ -131,6 +134,8 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
 
     override fun onCreateContentView(): View {
         Log.e(TAG, "Session onCreateContentView")
+        val isWatch = context.packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
+
         val composeView = ComposeView(context).apply {
             Log.e(TAG, "Initializing ComposeView with owners")
             // Set ViewTree owners using extensions
@@ -143,17 +148,31 @@ class OpenClawSession(context: Context) : VoiceInteractionSession(context),
             }
             
             setContent {
-                AssistantUI(
-                    state = currentState.value,
-                    displayText = displayText.value,
-                    userQuery = userQuery.value,
-                    partialText = partialText.value,
-                    errorMessage = errorMessage.value,
-                    audioLevel = audioLevel.value,
-                    onClose = { finish() },
-                    onRetry = { startListening() },
-                    onInterrupt = { interruptAndListen() }
-                )
+                if (isWatch) {
+                    WatchAssistantUI(
+                        state = currentState.value,
+                        displayText = displayText.value,
+                        userQuery = userQuery.value,
+                        partialText = partialText.value,
+                        errorMessage = errorMessage.value,
+                        audioLevel = audioLevel.value,
+                        onClose = { finish() },
+                        onRetry = { startListening() },
+                        onInterrupt = { interruptAndListen() }
+                    )
+                } else {
+                    AssistantUI(
+                        state = currentState.value,
+                        displayText = displayText.value,
+                        userQuery = userQuery.value,
+                        partialText = partialText.value,
+                        errorMessage = errorMessage.value,
+                        audioLevel = audioLevel.value,
+                        onClose = { finish() },
+                        onRetry = { startListening() },
+                        onInterrupt = { interruptAndListen() }
+                    )
+                }
             }
         }
         return composeView
@@ -707,6 +726,135 @@ fun AssistantUI(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * Assistant UI for Wear OS
+ */
+@Composable
+fun WatchAssistantUI(
+    state: AssistantState,
+    displayText: String,
+    userQuery: String,
+    partialText: String,
+    errorMessage: String?,
+    audioLevel: Float,
+    onClose: () -> Unit,
+    onRetry: () -> Unit,
+    onInterrupt: () -> Unit = {}
+) {
+    androidx.wear.compose.material.Scaffold(
+        modifier = Modifier.fillMaxSize().background(Color.Black),
+        timeText = { androidx.wear.compose.material.TimeText() }
+    ) {
+        val scrollState = rememberScalingLazyListState()
+
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = scrollState,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 24.dp)
+        ) {
+            item {
+                // Mic Icon / Status
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (state) {
+                                AssistantState.LISTENING -> Color(0xFF4CAF50)
+                                AssistantState.SPEAKING -> Color(0xFF2196F3)
+                                AssistantState.THINKING, AssistantState.PROCESSING -> Color(0xFFFFC107)
+                                AssistantState.ERROR -> Color(0xFFF44336)
+                                else -> Color(0xFF9E9E9E)
+                            }
+                        )
+                        .clickable {
+                             if (state == AssistantState.SPEAKING) onInterrupt()
+                             else if (state == AssistantState.ERROR) onRetry()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (state == AssistantState.THINKING || state == AssistantState.PROCESSING) {
+                        androidx.wear.compose.material.CircularProgressIndicator(
+                            indicatorColor = Color.White,
+                            trackColor = Color.Transparent,
+                            strokeWidth = 3.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (state == AssistantState.ERROR) Icons.Default.MicOff else Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            if (state == AssistantState.LISTENING && partialText.isNotBlank()) {
+                item {
+                    androidx.wear.compose.material.Text(
+                        text = partialText,
+                        textAlign = TextAlign.Center,
+                        style = androidx.wear.compose.material.MaterialTheme.typography.caption1,
+                        color = Color.LightGray
+                    )
+                }
+            }
+
+            if (userQuery.isNotBlank()) {
+                item {
+                    androidx.wear.compose.material.Text(
+                        text = userQuery,
+                        textAlign = TextAlign.Center,
+                        style = androidx.wear.compose.material.MaterialTheme.typography.button,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            if (displayText.isNotBlank() && state != AssistantState.LISTENING) {
+                item {
+                    androidx.wear.compose.material.Text(
+                        text = displayText,
+                        textAlign = TextAlign.Center,
+                        style = androidx.wear.compose.material.MaterialTheme.typography.body1
+                    )
+                }
+            }
+
+            if (errorMessage != null) {
+                item {
+                    androidx.wear.compose.material.Text(
+                        text = errorMessage,
+                        textAlign = TextAlign.Center,
+                        style = androidx.wear.compose.material.MaterialTheme.typography.caption2,
+                        color = Color.Red
+                    )
+                }
+                item {
+                    androidx.wear.compose.material.Button(
+                        onClick = onRetry,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Icon(
+                             imageVector = Icons.Default.Mic,
+                             contentDescription = null,
+                             modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+            }
         }
     }
 }

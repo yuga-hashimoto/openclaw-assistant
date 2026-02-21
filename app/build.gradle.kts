@@ -156,6 +156,11 @@ dependencies {
     // Vosk
     implementation("com.alphacephei:vosk-android:0.3.75")
 
+    // Wear OS
+    implementation("androidx.wear:wear:1.3.0")
+    implementation("androidx.wear.compose:compose-material:1.3.1")
+    implementation("androidx.wear.compose:compose-foundation:1.3.1")
+
     // Tink (Crypto)
     implementation("com.google.crypto.tink:tink-android:1.10.0")
 

@@ -10,4 +10,6 @@
     <issue id="ObsoleteSdkInt" severity="warning" />
     <!-- Firebase dependencies bring activity/fragment lint checks -->
     <issue id="InvalidFragmentVersionForActivityResult" severity="warning" />
+    <!-- Allow android:required="false" for watch feature to support single APK -->
+    <issue id="InvalidWearFeatureAttribute" severity="warning" />
 </lint>

@@ -23,6 +23,9 @@
     <!-- Start service on boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Wear OS compatibility -->
+    <uses-feature android:name="android.hardware.type.watch" android:required="false" />
+
     <!-- Required to detect TTS engines and speech recognizer languages (Android 11+) -->
     <queries>
         <intent>
@@ -46,6 +49,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenClawAssistant"
         tools:targetApi="34">
+
+        <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
 
         <!-- Main Activity -->
         <activity
@@ -81,6 +86,8 @@
             <intent-filter>
                 <action android:name="android.service.voice.VoiceInteractionService" />
                 <action android:name="android.intent.action.ASSIST" />
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
 
