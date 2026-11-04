@@ -612,3 +612,10 @@ MIT License - 詳細は [LICENSE](LICENSE) を参照。
 
 Made with ❤️ for [OpenClaw](https://github.com/openclaw/openclaw)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R5R51S97C4)
+# ONESMUS
+
+A personal AI voice assistant for Android.
+
+Assistant name: Onesmus
+Wake phrase: Hey Onesmus
+Target device: Samsung Galaxy A07
